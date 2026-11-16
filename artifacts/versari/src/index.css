@@ -123,6 +123,8 @@
 .button-outline { color: #293449; border-color: #d9d2c4; background: transparent; }
 .button-outline:hover:not(:disabled) { border-color: #293449; background: #f4f0e7; }
 .button-joined { color: #315b4a; border-color: #c9d9cd; background: #edf4ec; }
+.button-cancel { color: #a64232; border-color: #e6c5bd; background: #fbefeb; }
+.button-cancel:hover:not(:disabled) { border-color: #d59b8e; background: #f7e3dc; }
 .text-button { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 6px 2px; color: #bd563f; font-weight: 700; font-size: 13px; background: none; cursor: pointer; }
 .text-button:disabled { opacity: .55; cursor: wait; }
 

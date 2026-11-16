@@ -12,7 +12,7 @@ import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } fr
 import {
   getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListConnectionsQueryKey,
   getListMeetupsQueryKey, getListStudentsQueryKey, useCreateConnection, useCreateMeetup,
-  useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
+  useCancelMeetup, useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
   useListConnections, useListMeetups, useListStudents, useSaveMyProfile, useUpdateConnection,
 } from '@workspace/api-client-react';
 import type { Connection, ListMeetupsParams, ListStudentsParams, Meetup, MeetupInput, ProfileInput, StudentProfile } from '@workspace/api-client-react';
@@ -319,12 +319,14 @@ function StudentCard({ student, onConnect, pending }: { student: StudentProfile;
 }
 
 function MeetupPage() {
+  const { userId } = useAuth();
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('');
   const [creating, setCreating] = useState(false);
   const params = useMemo<ListMeetupsParams>(() => ({ q: search.trim() || undefined, mode: mode ? mode as 'study' | 'play' : undefined }), [search, mode]);
   const query = useListMeetups(params, { query: { queryKey: getListMeetupsQueryKey(params) } });
   const createMeetup = useCreateMeetup();
+  const cancelMeetup = useCancelMeetup();
   const join = useJoinMeetup();
   const leave = useLeaveMeetup();
   const client = useQueryClient();
@@ -333,6 +335,13 @@ function MeetupPage() {
   const toggleJoin = (meetup: Meetup) => {
     const mutation = meetup.joined ? leave : join;
     mutation.mutate({ id: meetup.id }, { onSuccess: refresh });
+  };
+  const cancel = (meetup: Meetup) => {
+    const confirmed = window.confirm(
+      `Cancel “${meetup.title}”? This will remove the meetup for everyone.`,
+    );
+    if (!confirmed) return;
+    cancelMeetup.mutate({ id: meetup.id }, { onSuccess: refresh });
   };
   return (
     <div>
@@ -346,15 +355,16 @@ function MeetupPage() {
         </div>
       </div>
       {createMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t create that meetup. Check your details and try again.</div>}
+      {cancelMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t cancel that meetup. Please try again.</div>}
       {query.isLoading ? <MeetupSkeletons /> : query.isError ? <ErrorState message="Meetups aren't loading right now." retry={() => query.refetch()} /> : query.data?.length ? (
-        <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} onToggle={() => toggleJoin(meetup)} pending={(join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id)} />)}</div>
+        <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} isOrganizer={meetup.creatorId === userId} onCancel={() => cancel(meetup)} onToggle={() => toggleJoin(meetup)} pending={(cancelMeetup.isPending && cancelMeetup.variables?.id === meetup.id) || (join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id)} />)}</div>
       ) : <EmptyState title={search || mode ? 'No plans found.' : 'It’s quiet here. Want to start something?'} detail="Start small: pick a time, a place, and one thing you’d enjoy doing with someone else." icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
       {creating && <MeetupDialog onClose={() => setCreating(false)} onSubmit={submitMeetup} pending={createMeetup.isPending} />}
     </div>
   );
 }
 
-function MeetupCard({ meetup, onToggle, pending }: { meetup: Meetup; onToggle: () => void; pending: boolean }) {
+function MeetupCard({ meetup, isOrganizer, onCancel, onToggle, pending }: { meetup: Meetup; isOrganizer: boolean; onCancel: () => void; onToggle: () => void; pending: boolean }) {
   const isStudy = meetup.mode === 'study';
   const start = new Date(meetup.startsAt);
   const date = Number.isNaN(start.valueOf()) ? 'Time to be announced' : new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(start);
@@ -363,7 +373,7 @@ function MeetupCard({ meetup, onToggle, pending }: { meetup: Meetup; onToggle: (
     <div className="meetup-card-head"><span className={`meetup-type ${isStudy ? 'type-study' : 'type-play'}`}>{isStudy ? <BookOpen size={14} /> : <Sparkles size={14} />}{isStudy ? 'STUDY SESSION' : 'OFF THE CLOCK'}</span><span className="meetup-seats">{meetup.attendeeCount}/{meetup.capacity} spots</span></div>
     <h2>{meetup.title}</h2><div className="meetup-topic">{meetup.topic}</div><p className="meetup-description">{meetup.description || 'A simple plan, made better with company.'}</p>
     <div className="meetup-info"><span><CalendarDays size={15} />{date}</span><span><MapPin size={15} />{meetup.location}</span></div>
-    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div><button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button></div>
+    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div>{isOrganizer ? <button className="button button-cancel" onClick={onCancel} disabled={pending} data-testid={`button-cancel-${meetup.id}`}><X size={14} />{pending ? 'Cancelling…' : 'Cancel meetup'}</button> : <button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button>}</div>
   </article>;
 }
 

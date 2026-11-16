@@ -176,6 +176,16 @@ export const CreateMeetupResponse = zod.object({
 
 
 /**
+ * @summary Cancel an organized meetup
+ */
+export const CancelMeetupParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CancelMeetupResponse = zod.void()
+
+
+/**
  * @summary Join a meetup
  */
 export const JoinMeetupParams = zod.object({

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, asc, count, eq, gt, inArray, ilike, or } from "drizzle-orm";
 import {
+  CancelMeetupParams,
   CreateMeetupBody,
   CreateMeetupResponse,
   JoinMeetupParams,
@@ -147,6 +148,48 @@ router.post("/meetups", async (req, res): Promise<void> => {
     return;
   }
   res.status(201).json(CreateMeetupResponse.parse(meetup));
+});
+
+router.delete("/meetups/:id", async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId;
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to continue." });
+    return;
+  }
+  const params = CancelMeetupParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [meetup] = await db
+    .select({ creatorId: meetupsTable.creatorId })
+    .from(meetupsTable)
+    .where(eq(meetupsTable.id, params.data.id))
+    .limit(1);
+  if (!meetup) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  if (meetup.creatorId !== userId) {
+    res.status(403).json({ error: "Only the organizer can cancel this meetup." });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(meetupsTable)
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(meetupsTable.creatorId, userId),
+      ),
+    )
+    .returning({ id: meetupsTable.id });
+  if (!deleted) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  res.status(204).end();
 });
 
 router.post("/meetups/:id/join", async (req, res): Promise<void> => {

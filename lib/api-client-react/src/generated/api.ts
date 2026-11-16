@@ -661,6 +661,80 @@ export const useCreateMeetup = <TError = ErrorType<unknown>,
       return useMutation(getCreateMeetupMutationOptions(options), queryClient);
     }
 
+export const getCancelMeetupUrl = (id: string,) => {
+
+
+
+
+  return `/api/meetups/${id}`
+}
+
+/**
+ * @summary Cancel an organized meetup
+ */
+export const cancelMeetup = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCancelMeetupUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelMeetupMutationKey = () => ['cancelMeetup'] as const;
+
+export const getCancelMeetupMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelMeetup>>, TError,CancelMeetupMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelMeetup>>, TError,CancelMeetupMutationVariables, TContext> => {
+
+const mutationKey = getCancelMeetupMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelMeetup>>, CancelMeetupMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelMeetup(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelMeetupMutationResult = NonNullable<Awaited<ReturnType<typeof cancelMeetup>>>
+
+    export type CancelMeetupMutationError = ErrorType<unknown>
+    export type CancelMeetupMutationVariables = {id: string}
+
+    /**
+ * @summary Cancel an organized meetup
+ */
+export const useCancelMeetup = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelMeetup>>, TError,CancelMeetupMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof cancelMeetup>>,
+        TError,
+        CancelMeetupMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCancelMeetupMutationOptions(options), queryClient);
+    }
+
 export const getJoinMeetupUrl = (id: string,) => {
 
 
