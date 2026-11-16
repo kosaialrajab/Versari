@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: profile
+    description: Student profile operations
+  - name: students
+    description: Discover other students
+  - name: meetups
+    description: Study and play meetups
+  - name: connections
+    description: Student connection requests
+  - name: dashboard
+    description: Community overview
 paths:
   /healthz:
     get:
@@ -24,6 +34,206 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me/profile:
+    get:
+      operationId: getMyProfile
+      tags: [profile]
+      summary: Get the signed-in student's profile
+      responses:
+        "200":
+          description: The student's profile, or null before onboarding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResult"
+    put:
+      operationId: saveMyProfile
+      tags: [profile]
+      summary: Create or update the signed-in student's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Saved profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProfile"
+  /students:
+    get:
+      operationId: listStudents
+      tags: [students]
+      summary: Discover students by activity and search text
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [study, play]
+      responses:
+        "200":
+          description: Matching student profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentProfile"
+  /meetups:
+    get:
+      operationId: listMeetups
+      tags: [meetups]
+      summary: Browse study and play meetups
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [study, play]
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upcoming meetups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meetup"
+    post:
+      operationId: createMeetup
+      tags: [meetups]
+      summary: Create a study or play meetup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetupInput"
+      responses:
+        "201":
+          description: Created meetup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meetup"
+  /meetups/{id}/join:
+    post:
+      operationId: joinMeetup
+      tags: [meetups]
+      summary: Join a meetup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated meetup membership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meetup"
+    delete:
+      operationId: leaveMeetup
+      tags: [meetups]
+      summary: Leave a meetup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated meetup membership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meetup"
+  /connections:
+    get:
+      operationId: listConnections
+      tags: [connections]
+      summary: View incoming and outgoing student connections
+      responses:
+        "200":
+          description: Connection requests and accepted connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Connection"
+    post:
+      operationId: createConnection
+      tags: [connections]
+      summary: Send a connection request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionInput"
+      responses:
+        "201":
+          description: Connection request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+  /connections/{id}:
+    patch:
+      operationId: updateConnection
+      tags: [connections]
+      summary: Accept or decline a received request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionUpdate"
+      responses:
+        "200":
+          description: Updated connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+  /dashboard:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get community activity totals
+      responses:
+        "200":
+          description: Overview counts for the signed-in student
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +243,102 @@ components:
           type: string
       required:
         - status
+    ProfileResult:
+      oneOf:
+        - $ref: "#/components/schemas/StudentProfile"
+        - type: "null"
+    StudentProfile:
+      type: object
+      required: [userId, displayName, university, program, year, bio, interests, lookingFor, studyStyle, availability]
+      properties:
+        userId: { type: string }
+        displayName: { type: string }
+        university: { type: string }
+        program: { type: string }
+        year: { type: string }
+        bio: { type: string }
+        interests:
+          type: array
+          items: { type: string }
+        lookingFor:
+          type: array
+          items: { type: string, enum: [study, play] }
+        studyStyle: { type: string }
+        availability: { type: string }
+    ProfileInput:
+      type: object
+      required: [displayName, university, program, year, bio, interests, lookingFor, studyStyle, availability]
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        university: { type: string, minLength: 1, maxLength: 120 }
+        program: { type: string, minLength: 1, maxLength: 100 }
+        year: { type: string, minLength: 1, maxLength: 40 }
+        bio: { type: string, maxLength: 500 }
+        interests:
+          type: array
+          items: { type: string, maxLength: 50 }
+          maxItems: 12
+        lookingFor:
+          type: array
+          items: { type: string, enum: [study, play] }
+          minItems: 1
+          maxItems: 2
+        studyStyle: { type: string, maxLength: 80 }
+        availability: { type: string, maxLength: 120 }
+    Meetup:
+      type: object
+      required: [id, creatorId, creatorName, mode, title, topic, description, location, startsAt, capacity, attendeeCount, joined]
+      properties:
+        id: { type: string }
+        creatorId: { type: string }
+        creatorName: { type: string }
+        mode: { type: string, enum: [study, play] }
+        title: { type: string }
+        topic: { type: string }
+        description: { type: string }
+        location: { type: string }
+        startsAt: { type: string, format: date-time }
+        capacity: { type: integer }
+        attendeeCount: { type: integer }
+        joined: { type: boolean }
+    MeetupInput:
+      type: object
+      required: [mode, title, topic, description, location, startsAt, capacity]
+      properties:
+        mode: { type: string, enum: [study, play] }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        topic: { type: string, minLength: 1, maxLength: 80 }
+        description: { type: string, maxLength: 500 }
+        location: { type: string, minLength: 1, maxLength: 120 }
+        startsAt: { type: string, format: date-time }
+        capacity: { type: integer, minimum: 2, maximum: 50 }
+    Connection:
+      type: object
+      required: [id, requesterId, recipientId, status, otherStudent]
+      properties:
+        id: { type: string }
+        requesterId: { type: string }
+        recipientId: { type: string }
+        status: { type: string, enum: [pending, accepted, declined] }
+        otherStudent:
+          $ref: "#/components/schemas/StudentProfile"
+    ConnectionInput:
+      type: object
+      required: [recipientId]
+      properties:
+        recipientId: { type: string, minLength: 1 }
+    ConnectionUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [accepted, declined] }
+    DashboardSummary:
+      type: object
+      required: [studentCount, studyMeetupCount, playMeetupCount, incomingRequests, connections]
+      properties:
+        studentCount: { type: integer }
+        studyMeetupCount: { type: integer }
+        playMeetupCount: { type: integer }
+        incomingRequests: { type: integer }
+        connections: { type: integer }
 

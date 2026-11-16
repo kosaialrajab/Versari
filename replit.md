@@ -1,6 +1,6 @@
-# [Project name]
+# Versari
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Versari helps university students find study partners, make campus connections, and join study or play meetups.
 
 ## Run & Operate
 
@@ -22,15 +22,21 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/versari/` — React web app, Clerk sign-in, discovery, meetups, connections, and profile onboarding
+- `artifacts/api-server/src/routes/versari/` — authenticated Versari API routes
+- `lib/api-spec/openapi.yaml` — source of truth for API contracts
+- `lib/db/src/schema/` — PostgreSQL table definitions
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Clerk handles accounts and verified email sign-in; the app does not store passwords.
+- Profiles, connection requests, and meetups are shared through the API and PostgreSQL.
+- Student discovery is limited to the exact university name on the member's profile.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Students can create a profile, choose whether they want study partners or people to play with, and discover peers at the same university.
+- Members can send and answer connection requests, and create or join study and play meetups.
 
 ## User preferences
 
@@ -38,7 +44,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Email verification confirms control of an email address but does not yet restrict sign-ups to approved university email domains.
 
 ## Pointers
 
