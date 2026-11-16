@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Versari"
+description = "A student connection app for discovering study partners and finding people to play or spend time with."
+version = "1.0.0"
+id = "artifacts/versari"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19413
+
+[services.development]
+run = "pnpm --filter @workspace/versari run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/versari", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/versari/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19413"
+BASE_PATH = "/"
