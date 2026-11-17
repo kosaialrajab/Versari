@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, count, eq, gt } from "drizzle-orm";
+import { and, count, eq, gt, inArray } from "drizzle-orm";
 import { GetDashboardSummaryResponse } from "@workspace/api-zod";
 import {
   connectionsTable,
@@ -8,19 +8,20 @@ import {
   profilesTable,
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
 
 const router: IRouter = Router();
 router.use(requireAuth);
 
 router.get("/dashboard", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
   }
   const [profile] = await db
-    .select({ university: profilesTable.university })
+    .select({ userId: profilesTable.userId })
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId))
     .limit(1);
@@ -36,6 +37,11 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     );
     return;
   }
+  const campusUsers = await db
+    .select({ userId: profilesTable.userId })
+    .from(profilesTable)
+    .where(eq(profilesTable.verifiedSchool, school));
+  const campusUserIds = campusUsers.map(({ userId: campusUserId }) => campusUserId);
   const now = new Date();
   const [
     [studentCount],
@@ -47,7 +53,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     db
       .select({ value: count() })
       .from(profilesTable)
-      .where(eq(profilesTable.university, profile.university)),
+      .where(eq(profilesTable.verifiedSchool, school)),
     db
       .select({ value: count() })
       .from(meetupsTable)
@@ -56,7 +62,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
         and(
           eq(meetupsTable.mode, "study"),
           gt(meetupsTable.startsAt, now),
-          eq(profilesTable.university, profile.university),
+          eq(profilesTable.verifiedSchool, school),
         ),
       ),
     db
@@ -67,7 +73,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
         and(
           eq(meetupsTable.mode, "play"),
           gt(meetupsTable.startsAt, now),
-          eq(profilesTable.university, profile.university),
+          eq(profilesTable.verifiedSchool, school),
         ),
       ),
     db
@@ -77,6 +83,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
         and(
           eq(connectionsTable.recipientId, userId),
           eq(connectionsTable.status, "pending"),
+          inArray(connectionsTable.requesterId, campusUserIds),
         ),
       ),
     db
@@ -87,6 +94,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
           eq(connectionsTable.status, "accepted"),
           // Count accepted connections involving the signed-in member.
           eq(connectionsTable.requesterId, userId),
+          inArray(connectionsTable.recipientId, campusUserIds),
         ),
       ),
   ]);
@@ -97,6 +105,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
       and(
         eq(connectionsTable.status, "accepted"),
         eq(connectionsTable.recipientId, userId),
+        inArray(connectionsTable.requesterId, campusUserIds),
       ),
     );
   res.json(

@@ -9,6 +9,7 @@ import {
   Menu, MessageCircle, Plus, Search, SlidersHorizontal, Sparkles, Users, X,
 } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { campusFromVerifiedEmails } from '@/lib/campus';
 import {
   getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListConnectionsQueryKey,
   getListMeetupsQueryKey, getListStudentsQueryKey, useCreateConnection, useCreateMeetup,
@@ -106,7 +107,7 @@ function AuthPage({ children }: { children: ReactNode }) {
       <div className="auth-form-wrap">
         <Link href="/" className="auth-mobile-brand"><Wordmark /></Link>
         {children}
-        <p className="auth-verify"><CheckCircle2 size={15} /> Verify your email to join the Versari community.</p>
+        <p className="auth-verify"><CheckCircle2 size={15} /> Use a verified Carleton or uOttawa student email to join your campus community.</p>
       </div>
     </main>
   );
@@ -196,6 +197,7 @@ function Landing() {
 function AppFrame({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useUser();
+  const campus = campusFromVerifiedEmails(user?.emailAddresses);
   const { signOut } = useClerk();
   const [location] = useLocation();
   const links = [
@@ -207,7 +209,7 @@ function AppFrame({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
         <Link href="/discover" className="sidebar-brand"><Wordmark dark /></Link>
-        <div className="sidebar-campus"><span className="campus-dot" /> YOUR CAMPUS COMMUNITY</div>
+        <div className="sidebar-campus"><span className="campus-dot" />{campus?.toUpperCase() || 'CAMPUS COMMUNITY'}</div>
         <nav className="side-nav" aria-label="Member navigation">
           {links.map(({ href, text, icon: Icon }) => <Link key={href} href={href} className={`side-link ${location === href ? 'active' : ''}`} onClick={() => setMobileOpen(false)}><Icon size={19} /><span>{text}</span>{href === '/connections' && <span className="side-chevron"><ArrowRight size={14} /></span>}</Link>)}
         </nav>
@@ -233,14 +235,35 @@ function AppFrame({ children }: { children: ReactNode }) {
 
 function MemberGate({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
-  const { data: profile, isLoading, isError, refetch } = useGetMyProfile({ query: { enabled: isLoaded && !!isSignedIn, queryKey: getGetMyProfileQueryKey() } });
+  const { isLoaded: userLoaded, user } = useUser();
+  const campus = campusFromVerifiedEmails(user?.emailAddresses);
+  const { data: profile, isLoading, isError, error, refetch } = useGetMyProfile({ query: { enabled: isLoaded && userLoaded && !!isSignedIn && !!campus, queryKey: getGetMyProfileQueryKey() } });
   const [location] = useLocation();
-  if (!isLoaded) return <PageLoading />;
+  if (!isLoaded || (isSignedIn && !userLoaded)) return <PageLoading />;
   if (!isSignedIn) return <Redirect to="/sign-in" />;
+  if (!campus || hasHttpStatus(error, 403)) return <CampusAccessDenied />;
   if (isLoading) return <PageLoading />;
   if (isError) return <main className="center-state"><div className="state-illustration"><CircleHelp size={27} /></div><h2 className="display">We couldn't load your profile.</h2><p>Give it another try in a moment.</p><button className="button button-dark" onClick={() => refetch()}>Try again</button></main>;
   if (!profile && location !== '/profile') return <Redirect to="/profile" />;
   return <AppFrame>{children}</AppFrame>;
+}
+
+function hasHttpStatus(error: unknown, status: number) {
+  return typeof error === 'object' && error !== null && 'status' in error && error.status === status;
+}
+
+function CampusAccessDenied() {
+  const { signOut } = useClerk();
+  return <main className="campus-access-page grain">
+    <Link href="/" className="auth-brand"><Wordmark /></Link>
+    <section className="center-state">
+      <div className="state-illustration"><GraduationCap size={27} /></div>
+      <span className="eyebrow">VERIFIED STUDENT EMAIL REQUIRED</span>
+      <h1 className="display">Your campus community is private.</h1>
+      <p>Versari is currently for students with a verified Carleton or uOttawa email. Sign in with your university address to continue.</p>
+      <button className="button button-dark" onClick={() => signOut({ redirectUrl: `${basePath}/` })}>Sign out</button>
+    </section>
+  </main>;
 }
 
 function PageLoading() {
@@ -447,6 +470,8 @@ function ConnectionCard({ connection, tab, pending, onAccept, onDecline }: { con
 const emptyProfile: ProfileInput = { displayName: '', university: '', program: '', year: '', bio: '', interests: [], lookingFor: ['study', 'play'], studyStyle: '', availability: '' };
 
 function ProfilePage() {
+  const { user } = useUser();
+  const campus = campusFromVerifiedEmails(user?.emailAddresses);
   const { data: profile, isLoading, isError, refetch } = useGetMyProfile();
   const save = useSaveMyProfile();
   const client = useQueryClient();
@@ -457,7 +482,7 @@ function ProfilePage() {
   const values = draft || (profile ? {
     displayName: profile.displayName, university: profile.university, program: profile.program, year: profile.year,
     bio: profile.bio, interests: profile.interests || [], lookingFor: profile.lookingFor?.length ? profile.lookingFor : ['study', 'play'], studyStyle: profile.studyStyle, availability: profile.availability,
-  } : emptyProfile);
+  } : { ...emptyProfile, university: campus || '' });
   const setField = (field: keyof ProfileInput, value: string) => { setSaved(false); setDraft((current) => ({ ...(current || values), [field]: value })); };
   const toggleLookingFor = (mode: 'study' | 'play') => {
     setSaved(false);
@@ -494,7 +519,7 @@ function ProfilePage() {
     {!profile && <div className="onboarding-banner"><Sparkles size={18} /><span><strong>Welcome to Versari.</strong> This is your first step toward finding your campus people.</span></div>}
     <form className="profile-form paper-shadow" onSubmit={submit}>
       <div className="profile-form-title"><div className="profile-avatar-large">{initials(values.displayName || 'You')}</div><div><h2 className="display">The basics</h2><p>Start with the details people need to find common ground.</p></div></div>
-      <div className="form-row"><label className="field-label">What should we call you?<input name="displayName" required maxLength={80} value={values.displayName} onChange={(event) => setField('displayName', event.target.value)} placeholder="Your name" /></label><label className="field-label">University<input name="university" required maxLength={120} value={values.university} onChange={(event) => setField('university', event.target.value)} placeholder="Your university" /></label></div>
+      <div className="form-row"><label className="field-label">What should we call you?<input name="displayName" required maxLength={80} value={values.displayName} onChange={(event) => setField('displayName', event.target.value)} placeholder="Your name" /></label><label className="field-label">Your campus<input name="university" required maxLength={120} value={campus || values.university} readOnly aria-describedby="campus-assigned-help" /><span className="optional" id="campus-assigned-help">Assigned from your verified student email.</span></label></div>
       <div className="form-row"><label className="field-label">What are you studying?<input name="program" required maxLength={100} value={values.program} onChange={(event) => setField('program', event.target.value)} placeholder="Program or area of study" /></label><label className="field-label">Year at university<select name="year" required value={values.year} onChange={(event) => setField('year', event.target.value)}><option value="">Choose your year</option><option>First year</option><option>Second year</option><option>Third year</option><option>Fourth year</option><option>Fifth year or beyond</option><option>Graduate student</option><option>Other</option></select></label></div>
       <label className="field-label">A little about you<textarea name="bio" maxLength={500} rows={4} value={values.bio} onChange={(event) => setField('bio', event.target.value)} placeholder="What makes you, you? What kind of people or plans are you hoping to find?" /></label>
       <label className="field-label">Things you’re into <span className="optional">Separate with commas · up to 12</span><input name="interests" maxLength={600} value={values.interests.join(', ')} onChange={(event) => setDraft((current) => ({ ...(current || values), interests: event.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12) }))} placeholder="Film photography, climbing, ramen…" /></label>
@@ -505,7 +530,7 @@ function ProfilePage() {
       <div className="form-row"><label className="field-label">Your study style<input name="studyStyle" maxLength={80} value={values.studyStyle} onChange={(event) => setField('studyStyle', event.target.value)} placeholder="Quiet focus, or talk it out?" /></label><label className="field-label">When are you usually free?<input name="availability" maxLength={120} value={values.availability} onChange={(event) => setField('availability', event.target.value)} placeholder="Weekday afternoons, weekends…" /></label></div>
       {save.isError && <p className="form-error" role="alert">We couldn’t save that just yet. Please try again.</p>}
       {saved && <p className="saved-message" role="status"><CheckCircle2 size={16} /> Your profile is saved. Now people know how to find you.</p>}
-      <div className="profile-actions"><span><CheckCircle2 size={15} /> Visible to Versari members who list your university.</span><button className="button button-coral" type="submit" disabled={save.isPending}>{save.isPending ? 'Saving your profile…' : profile ? <>Save changes <Check size={15} /></> : <>Finish your profile <ArrowRight size={15} /></>}</button></div>
+      <div className="profile-actions"><span><CheckCircle2 size={15} /> Visible to verified {campus || 'campus'} members.</span><button className="button button-coral" type="submit" disabled={save.isPending}>{save.isPending ? 'Saving your profile…' : profile ? <>Save changes <Check size={15} /></> : <>Finish your profile <ArrowRight size={15} /></>}</button></div>
     </form>
   </div>;
 }

@@ -9,7 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { db, profilesTable } from "@workspace/db";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -17,21 +17,37 @@ router.use(requireAuth);
 
 router.get("/me/profile", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
   }
 
-  const [profile] = await db
+  let [profile] = await db
     .select()
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId))
     .limit(1);
+  if (
+    profile &&
+    (profile.university !== school || profile.verifiedSchool !== school)
+  ) {
+    [profile] = await db
+      .update(profilesTable)
+      .set({
+        university: school,
+        verifiedSchool: school,
+        updatedAt: new Date(),
+      })
+      .where(eq(profilesTable.userId, userId))
+      .returning();
+  }
   res.json(GetMyProfileResponse.parse(profile ?? null));
 });
 
 router.put("/me/profile", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -45,10 +61,20 @@ router.put("/me/profile", async (req, res): Promise<void> => {
 
   const [profile] = await db
     .insert(profilesTable)
-    .values({ ...parsed.data, userId })
+    .values({
+      ...parsed.data,
+      userId,
+      university: school,
+      verifiedSchool: school,
+    })
     .onConflictDoUpdate({
       target: profilesTable.userId,
-      set: { ...parsed.data, updatedAt: new Date() },
+      set: {
+        ...parsed.data,
+        university: school,
+        verifiedSchool: school,
+        updatedAt: new Date(),
+      },
     })
     .returning();
   res.json(SaveMyProfileResponse.parse(profile));
@@ -56,6 +82,7 @@ router.put("/me/profile", async (req, res): Promise<void> => {
 
 router.get("/students", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -69,7 +96,7 @@ router.get("/students", async (req, res): Promise<void> => {
 
   const { q, mode } = query.data;
   const [myProfile] = await db
-    .select({ university: profilesTable.university })
+    .select({ userId: profilesTable.userId })
     .from(profilesTable)
     .where(eq(profilesTable.userId, userId))
     .limit(1);
@@ -80,7 +107,7 @@ router.get("/students", async (req, res): Promise<void> => {
   const profiles = await db
     .select()
     .from(profilesTable)
-    .where(eq(profilesTable.university, myProfile.university));
+    .where(eq(profilesTable.verifiedSchool, school));
 
   const search = q?.trim().toLowerCase();
   const students = profiles

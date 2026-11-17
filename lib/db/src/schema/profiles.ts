@@ -6,6 +6,7 @@ export const profilesTable = pgTable("versari_profiles", {
   userId: text("user_id").primaryKey(),
   displayName: text("display_name").notNull(),
   university: text("university").notNull(),
+  verifiedSchool: text("verified_school"),
   program: text("program").notNull(),
   year: text("year").notNull(),
   bio: text("bio").notNull().default(""),

@@ -19,13 +19,15 @@ import {
   profilesTable,
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
+import type { VersariSchool } from "../../lib/schoolAccess";
 
 const router: IRouter = Router();
 router.use(requireAuth);
 
 async function buildMeetups(
   currentUserId: string,
+  school: VersariSchool,
   mode?: string,
   search?: string,
 ) {
@@ -57,6 +59,7 @@ async function buildMeetups(
     .where(
       and(
         gt(meetupsTable.startsAt, now),
+        eq(profilesTable.verifiedSchool, school),
         modeFilter,
         searchFilter,
       ),
@@ -68,9 +71,18 @@ async function buildMeetups(
 
   const meetupIds = meetups.map((meetup) => meetup.id);
   const members = await db
-    .select()
+    .select({
+      meetupId: meetupMembersTable.meetupId,
+      userId: meetupMembersTable.userId,
+    })
     .from(meetupMembersTable)
-    .where(inArray(meetupMembersTable.meetupId, meetupIds));
+    .innerJoin(profilesTable, eq(meetupMembersTable.userId, profilesTable.userId))
+    .where(
+      and(
+        inArray(meetupMembersTable.meetupId, meetupIds),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    );
   const counts = new Map<string, number>();
   const joined = new Set<string>();
   for (const member of members) {
@@ -87,6 +99,7 @@ async function buildMeetups(
 
 router.get("/meetups", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -98,6 +111,7 @@ router.get("/meetups", async (req, res): Promise<void> => {
   }
   const meetups = await buildMeetups(
     userId,
+    school,
     query.data.mode,
     query.data.q?.trim(),
   );
@@ -106,6 +120,7 @@ router.get("/meetups", async (req, res): Promise<void> => {
 
 router.post("/meetups", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -129,6 +144,14 @@ router.post("/meetups", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Complete your student profile first." });
     return;
   }
+  await db
+    .update(profilesTable)
+    .set({
+      university: school,
+      verifiedSchool: school,
+      updatedAt: new Date(),
+    })
+    .where(eq(profilesTable.userId, userId));
 
   const meetupId = randomUUID();
   await db.transaction(async (tx) => {
@@ -140,7 +163,7 @@ router.post("/meetups", async (req, res): Promise<void> => {
     });
     await tx.insert(meetupMembersTable).values({ meetupId, userId });
   });
-  const [meetup] = await buildMeetups(userId).then((items) =>
+  const [meetup] = await buildMeetups(userId, school).then((items) =>
     items.filter((item) => item.id === meetupId),
   );
   if (!meetup) {
@@ -152,6 +175,7 @@ router.post("/meetups", async (req, res): Promise<void> => {
 
 router.delete("/meetups/:id", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -165,7 +189,13 @@ router.delete("/meetups/:id", async (req, res): Promise<void> => {
   const [meetup] = await db
     .select({ creatorId: meetupsTable.creatorId })
     .from(meetupsTable)
-    .where(eq(meetupsTable.id, params.data.id))
+    .innerJoin(profilesTable, eq(meetupsTable.creatorId, profilesTable.userId))
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
     .limit(1);
   if (!meetup) {
     res.status(404).json({ error: "Meetup not found." });
@@ -194,6 +224,7 @@ router.delete("/meetups/:id", async (req, res): Promise<void> => {
 
 router.post("/meetups/:id/join", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -204,9 +235,25 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
     return;
   }
   const [meetup] = await db
-    .select()
+    .select({
+      id: meetupsTable.id,
+      creatorId: meetupsTable.creatorId,
+      mode: meetupsTable.mode,
+      title: meetupsTable.title,
+      topic: meetupsTable.topic,
+      description: meetupsTable.description,
+      location: meetupsTable.location,
+      startsAt: meetupsTable.startsAt,
+      capacity: meetupsTable.capacity,
+    })
     .from(meetupsTable)
-    .where(eq(meetupsTable.id, params.data.id))
+    .innerJoin(profilesTable, eq(meetupsTable.creatorId, profilesTable.userId))
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
     .limit(1);
   if (!meetup) {
     res.status(404).json({ error: "Meetup not found." });
@@ -221,6 +268,14 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Complete your student profile first." });
     return;
   }
+  await db
+    .update(profilesTable)
+    .set({
+      university: school,
+      verifiedSchool: school,
+      updatedAt: new Date(),
+    })
+    .where(eq(profilesTable.userId, userId));
   const [existing] = await db
     .select()
     .from(meetupMembersTable)
@@ -235,7 +290,13 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
     const [memberCount] = await db
       .select({ value: count() })
       .from(meetupMembersTable)
-      .where(eq(meetupMembersTable.meetupId, meetup.id));
+      .innerJoin(profilesTable, eq(meetupMembersTable.userId, profilesTable.userId))
+      .where(
+        and(
+          eq(meetupMembersTable.meetupId, meetup.id),
+          eq(profilesTable.verifiedSchool, school),
+        ),
+      );
     if (Number(memberCount?.value ?? 0) >= meetup.capacity) {
       res.status(409).json({ error: "This meetup is full." });
       return;
@@ -245,7 +306,7 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
       userId,
     });
   }
-  const [updated] = await buildMeetups(userId).then((items) =>
+  const [updated] = await buildMeetups(userId, school).then((items) =>
     items.filter((item) => item.id === meetup.id),
   );
   if (!updated) {
@@ -257,6 +318,7 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
 
 router.delete("/meetups/:id/join", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -267,9 +329,25 @@ router.delete("/meetups/:id/join", async (req, res): Promise<void> => {
     return;
   }
   const [meetup] = await db
-    .select()
+    .select({
+      id: meetupsTable.id,
+      creatorId: meetupsTable.creatorId,
+      mode: meetupsTable.mode,
+      title: meetupsTable.title,
+      topic: meetupsTable.topic,
+      description: meetupsTable.description,
+      location: meetupsTable.location,
+      startsAt: meetupsTable.startsAt,
+      capacity: meetupsTable.capacity,
+    })
     .from(meetupsTable)
-    .where(eq(meetupsTable.id, params.data.id))
+    .innerJoin(profilesTable, eq(meetupsTable.creatorId, profilesTable.userId))
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
     .limit(1);
   if (!meetup) {
     res.status(404).json({ error: "Meetup not found." });
@@ -287,7 +365,7 @@ router.delete("/meetups/:id/join", async (req, res): Promise<void> => {
         eq(meetupMembersTable.userId, userId),
       ),
     );
-  const [updated] = await buildMeetups(userId).then((items) =>
+  const [updated] = await buildMeetups(userId, school).then((items) =>
     items.filter((item) => item.id === meetup.id),
   );
   if (!updated) {

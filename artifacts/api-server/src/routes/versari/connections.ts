@@ -11,7 +11,7 @@ import {
 } from "@workspace/api-zod";
 import { connectionsTable, db, profilesTable } from "@workspace/db";
 import { getAuth } from "@clerk/express";
-import { requireAuth } from "../../middlewares/requireAuth";
+import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -19,6 +19,7 @@ router.use(requireAuth);
 async function connectionWithStudent(
   id: string,
   currentUserId: string,
+  school: string,
 ): Promise<unknown | null> {
   const [connection] = await db
     .select()
@@ -34,7 +35,12 @@ async function connectionWithStudent(
   const [otherStudent] = await db
     .select()
     .from(profilesTable)
-    .where(eq(profilesTable.userId, otherUserId))
+    .where(
+      and(
+        eq(profilesTable.userId, otherUserId),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
     .limit(1);
   if (!otherStudent) return null;
 
@@ -60,6 +66,7 @@ async function connectionWithStudent(
 
 router.get("/connections", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -83,7 +90,12 @@ router.get("/connections", async (req, res): Promise<void> => {
     ? await db
         .select()
         .from(profilesTable)
-        .where(inArray(profilesTable.userId, otherUserIds))
+      .where(
+        and(
+          inArray(profilesTable.userId, otherUserIds),
+          eq(profilesTable.verifiedSchool, school),
+        ),
+      )
     : [];
   const profileMap = new Map(profiles.map((profile) => [profile.userId, profile]));
   const items = connections.flatMap((connection) => {
@@ -117,6 +129,7 @@ router.get("/connections", async (req, res): Promise<void> => {
 
 router.post("/connections", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -134,7 +147,12 @@ router.post("/connections", async (req, res): Promise<void> => {
   const [recipient] = await db
     .select({ userId: profilesTable.userId })
     .from(profilesTable)
-    .where(eq(profilesTable.userId, recipientId))
+    .where(
+      and(
+        eq(profilesTable.userId, recipientId),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
     .limit(1);
   if (!recipient) {
     res.status(404).json({ error: "Student not found." });
@@ -167,12 +185,13 @@ router.post("/connections", async (req, res): Promise<void> => {
     recipientId,
     status: "pending",
   });
-  const item = await connectionWithStudent(id, userId);
+  const item = await connectionWithStudent(id, userId, school);
   res.status(201).json(CreateConnectionResponse.parse(item));
 });
 
 router.patch("/connections/:id", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
   if (!userId) {
     res.status(401).json({ error: "Sign in to continue." });
     return;
@@ -201,6 +220,15 @@ router.patch("/connections/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Connection request not found." });
     return;
   }
+  const sameCampusConnection = await connectionWithStudent(
+    connection.id,
+    userId,
+    school,
+  );
+  if (!sameCampusConnection) {
+    res.status(404).json({ error: "Connection request not found." });
+    return;
+  }
   if (connection.status !== "pending") {
     res.status(409).json({ error: "This request has already been answered." });
     return;
@@ -209,7 +237,7 @@ router.patch("/connections/:id", async (req, res): Promise<void> => {
     .update(connectionsTable)
     .set({ status: parsed.data.status })
     .where(eq(connectionsTable.id, connection.id));
-  const item = await connectionWithStudent(connection.id, userId);
+  const item = await connectionWithStudent(connection.id, userId, school);
   res.json(UpdateConnectionResponse.parse(item));
 });
 
