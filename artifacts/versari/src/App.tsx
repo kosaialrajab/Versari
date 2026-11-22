@@ -347,7 +347,12 @@ function MeetupPage() {
   const [mode, setMode] = useState('');
   const [creating, setCreating] = useState(false);
   const params = useMemo<ListMeetupsParams>(() => ({ q: search.trim() || undefined, mode: mode ? mode as 'study' | 'play' : undefined }), [search, mode]);
-  const query = useListMeetups(params, { query: { queryKey: getListMeetupsQueryKey(params) } });
+  const query = useListMeetups(params, {
+    query: {
+      queryKey: getListMeetupsQueryKey(params),
+      refetchInterval: 30_000,
+    },
+  });
   const createMeetup = useCreateMeetup();
   const cancelMeetup = useCancelMeetup();
   const join = useJoinMeetup();
@@ -381,7 +386,7 @@ function MeetupPage() {
       {cancelMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t cancel that meetup. Please try again.</div>}
       {query.isLoading ? <MeetupSkeletons /> : query.isError ? <ErrorState message="Meetups aren't loading right now." retry={() => query.refetch()} /> : query.data?.length ? (
         <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} isOrganizer={meetup.creatorId === userId} onCancel={() => cancel(meetup)} onToggle={() => toggleJoin(meetup)} pending={(cancelMeetup.isPending && cancelMeetup.variables?.id === meetup.id) || (join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id)} />)}</div>
-      ) : <EmptyState title={search || mode ? 'No plans found.' : 'It’s quiet here. Want to start something?'} detail="Start small: pick a time, a place, and one thing you’d enjoy doing with someone else." icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
+      ) : <EmptyState title={search || mode ? 'No plans found.' : 'No upcoming meetups yet.'} detail={search || mode ? 'Try another search or clear your filters to see more meetups.' : 'No one on your campus has posted a meetup yet. Create the first one and it will appear here for other verified students.'} icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
       {creating && <MeetupDialog onClose={() => setCreating(false)} onSubmit={submitMeetup} pending={createMeetup.isPending} />}
     </div>
   );
