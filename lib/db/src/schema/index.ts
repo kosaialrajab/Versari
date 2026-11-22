@@ -18,5 +18,6 @@
 //   export type Post = typeof postsTable.$inferSelect;
 
 export * from "./connections";
+export * from "./activityRequests";
 export * from "./meetups";
 export * from "./profiles";

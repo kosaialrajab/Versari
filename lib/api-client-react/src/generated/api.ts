@@ -25,6 +25,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivityRequest,
+  ActivityRequestInput,
+  ActivityRequestUpdate,
   Connection,
   ConnectionInput,
   ConnectionUpdate,
@@ -1159,6 +1162,284 @@ export const useUpdateConnection = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateConnectionMutationOptions(options), queryClient);
+    }
+
+export const getListActivityRequestsUrl = () => {
+
+
+
+
+  return `/api/activity-requests`
+}
+
+/**
+ * @summary List study and play requests between friends
+ */
+export const listActivityRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<ActivityRequest[]> => {
+
+  return customFetch<ActivityRequest[]>(getListActivityRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListActivityRequestsQueryKey = () => {
+    return [
+    `/api/activity-requests`
+    ] as const;
+    }
+
+
+export const getListActivityRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListActivityRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listActivityRequests>>> = ({ signal }) => listActivityRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListActivityRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listActivityRequests>>>
+export type ListActivityRequestsQueryError = ErrorType<unknown>
+
+
+export function useListActivityRequests<TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listActivityRequests>>,
+          TError,
+          Awaited<ReturnType<typeof listActivityRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListActivityRequests<TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listActivityRequests>>,
+          TError,
+          Awaited<ReturnType<typeof listActivityRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListActivityRequests<TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List study and play requests between friends
+ */
+
+export function useListActivityRequests<TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActivityRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListActivityRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateActivityRequestUrl = () => {
+
+
+
+
+  return `/api/activity-requests`
+}
+
+/**
+ * @summary Send a quick study or play request to a friend
+ */
+export const createActivityRequest = async (activityRequestInput: ActivityRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<ActivityRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ActivityRequest>(getCreateActivityRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(activityRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreateActivityRequestMutationKey = () => ['createActivityRequest'] as const;
+
+export const getCreateActivityRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActivityRequest>>, TError,CreateActivityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createActivityRequest>>, TError,CreateActivityRequestMutationVariables, TContext> => {
+
+const mutationKey = getCreateActivityRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createActivityRequest>>, CreateActivityRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createActivityRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateActivityRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createActivityRequest>>>
+    export type CreateActivityRequestMutationBody = BodyType<ActivityRequestInput>
+    export type CreateActivityRequestMutationError = ErrorType<unknown>
+    export type CreateActivityRequestMutationVariables = {data: BodyType<ActivityRequestInput>}
+
+    /**
+ * @summary Send a quick study or play request to a friend
+ */
+export const useCreateActivityRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActivityRequest>>, TError,CreateActivityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createActivityRequest>>,
+        TError,
+        CreateActivityRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateActivityRequestMutationOptions(options), queryClient);
+    }
+
+export const getUpdateActivityRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/activity-requests/${id}`
+}
+
+/**
+ * @summary Accept or decline a received activity request
+ */
+export const updateActivityRequest = async (id: string,
+    activityRequestUpdate: ActivityRequestUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ActivityRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ActivityRequest>(getUpdateActivityRequestUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(activityRequestUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateActivityRequestMutationKey = () => ['updateActivityRequest'] as const;
+
+export const getUpdateActivityRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActivityRequest>>, TError,UpdateActivityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateActivityRequest>>, TError,UpdateActivityRequestMutationVariables, TContext> => {
+
+const mutationKey = getUpdateActivityRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateActivityRequest>>, UpdateActivityRequestMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateActivityRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateActivityRequestMutationResult = NonNullable<Awaited<ReturnType<typeof updateActivityRequest>>>
+    export type UpdateActivityRequestMutationBody = BodyType<ActivityRequestUpdate>
+    export type UpdateActivityRequestMutationError = ErrorType<unknown>
+    export type UpdateActivityRequestMutationVariables = {id: string;data: BodyType<ActivityRequestUpdate>}
+
+    /**
+ * @summary Accept or decline a received activity request
+ */
+export const useUpdateActivityRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateActivityRequest>>, TError,UpdateActivityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateActivityRequest>>,
+        TError,
+        UpdateActivityRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateActivityRequestMutationOptions(options), queryClient);
     }
 
 export const getGetDashboardSummaryUrl = () => {

@@ -11,12 +11,14 @@ import {
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { campusFromVerifiedEmails } from '@/lib/campus';
 import {
-  getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListConnectionsQueryKey,
-  getListMeetupsQueryKey, getListStudentsQueryKey, useCreateConnection, useCreateMeetup,
-  useCancelMeetup, useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
-  useListConnections, useListMeetups, useListStudents, useSaveMyProfile, useUpdateConnection,
+  getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListActivityRequestsQueryKey,
+  getListConnectionsQueryKey, getListMeetupsQueryKey, getListStudentsQueryKey,
+  useCreateActivityRequest, useCreateConnection, useCreateMeetup, useCancelMeetup,
+  useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
+  useListActivityRequests, useListConnections, useListMeetups, useListStudents,
+  useSaveMyProfile, useUpdateActivityRequest, useUpdateConnection,
 } from '@workspace/api-client-react';
-import type { Connection, ListMeetupsParams, ListStudentsParams, Meetup, MeetupInput, ProfileInput, StudentProfile } from '@workspace/api-client-react';
+import type { ActivityRequest, Connection, ListMeetupsParams, ListStudentsParams, Meetup, MeetupInput, ProfileInput, StudentProfile } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
@@ -373,7 +375,7 @@ function MeetupPage() {
   };
   return (
     <div>
-      <PageHeader kicker="MAKE A PLAN, MAKE A MEMORY" title={<>Good plans, <em>good people.</em></>} desc="A focused hour in the library or a no-big-deal game night. Find a table to join." action={<button className="button button-coral" onClick={() => setCreating(true)}><Plus size={17} /> Start a meetup</button>} />
+      <PageHeader kicker="MAKE A PLAN, MAKE A MEMORY" title={<>Good plans, <em>good people.</em></>} desc="Meetups are shared with your accepted connections. Connect with students to grow your circle, then make a plan together." action={<button className="button button-coral" onClick={() => setCreating(true)}><Plus size={17} /> Start a meetup</button>} />
       <div className="meetup-tools">
         <label className="search-box"><Search size={18} /><span className="sr-only">Search meetups</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search topics or places" data-testid="input-meetup-search" /></label>
         <div className="filter-pills" role="group" aria-label="Filter meetups">
@@ -386,7 +388,7 @@ function MeetupPage() {
       {cancelMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t cancel that meetup. Please try again.</div>}
       {query.isLoading ? <MeetupSkeletons /> : query.isError ? <ErrorState message="Meetups aren't loading right now." retry={() => query.refetch()} /> : query.data?.length ? (
         <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} isOrganizer={meetup.creatorId === userId} onCancel={() => cancel(meetup)} onToggle={() => toggleJoin(meetup)} pending={(cancelMeetup.isPending && cancelMeetup.variables?.id === meetup.id) || (join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id)} />)}</div>
-      ) : <EmptyState title={search || mode ? 'No plans found.' : 'No upcoming meetups yet.'} detail={search || mode ? 'Try another search or clear your filters to see more meetups.' : 'No one on your campus has posted a meetup yet. Create the first one and it will appear here for other verified students.'} icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
+      ) : <EmptyState title={search || mode ? 'No plans found.' : 'No friend meetups yet.'} detail={search || mode ? 'Try another search or clear your filters to see more meetups.' : 'Connect with students on Discover first. Their upcoming meetups will appear here, and you can start one for your friends.'} icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
       {creating && <MeetupDialog onClose={() => setCreating(false)} onSubmit={submitMeetup} pending={createMeetup.isPending} />}
     </div>
   );
@@ -438,37 +440,195 @@ function MeetupDialog({ onClose, onSubmit, pending }: { onClose: () => void; onS
   </section></div>;
 }
 
+type ActivityMode = 'study' | 'play';
+type FriendRequestState = Partial<Record<ActivityMode, 'sent' | 'incoming'>>;
+
 function ConnectionsPage() {
-  const query = useListConnections();
+  const query = useListConnections({
+    query: { queryKey: getListConnectionsQueryKey(), refetchInterval: 30_000 },
+  });
+  const activityQuery = useListActivityRequests({
+    query: {
+      queryKey: getListActivityRequestsQueryKey(),
+      refetchInterval: 30_000,
+    },
+  });
   const update = useUpdateConnection();
+  const createActivity = useCreateActivityRequest();
+  const updateActivity = useUpdateActivityRequest();
   const client = useQueryClient();
   const { user } = useUser();
-  const [tab, setTab] = useState<'incoming' | 'outgoing' | 'connected'>('incoming');
+  const [tab, setTab] = useState<'incoming' | 'outgoing' | 'connected' | 'activity'>('incoming');
+  const [activityNotice, setActivityNotice] = useState('');
   const connections = query.data || [];
+  const activityRequests = activityQuery.data || [];
   const incoming = connections.filter((item) => item.status === 'pending' && item.recipientId === user?.id);
   const outgoing = connections.filter((item) => item.status === 'pending' && item.requesterId === user?.id);
   const connected = connections.filter((item) => item.status === 'accepted');
+  const incomingActivities = activityRequests.filter((item) => item.status === 'pending' && item.recipientId === user?.id);
   const current = tab === 'incoming' ? incoming : tab === 'outgoing' ? outgoing : connected;
-  const updateStatus = (connection: Connection, status: 'accepted' | 'declined') => update.mutate({ id: connection.id, data: { status } }, { onSuccess: async () => Promise.all([client.invalidateQueries({ queryKey: getListConnectionsQueryKey() }), client.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() })]), onError: () => {} });
+
+  const updateConnectionStatus = (connection: Connection, status: 'accepted' | 'declined') => {
+    update.mutate({ id: connection.id, data: { status } }, {
+      onSuccess: async () => Promise.all([
+        client.invalidateQueries({ queryKey: getListConnectionsQueryKey() }),
+        client.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }),
+        client.invalidateQueries({ queryKey: getListMeetupsQueryKey() }),
+      ]),
+    });
+  };
+  const sendActivityRequest = (connection: Connection, mode: ActivityMode) => {
+    createActivity.mutate({ data: { recipientId: connection.otherStudent.userId, mode } }, {
+      onSuccess: async () => {
+        setActivityNotice(`Your ${mode === 'study' ? 'study' : 'play'} request was sent to ${connection.otherStudent.displayName.split(' ')[0]}.`);
+        await client.invalidateQueries({ queryKey: getListActivityRequestsQueryKey() });
+      },
+      onError: () => setActivityNotice('Couldn’t send that request. There may already be one waiting.'),
+    });
+  };
+  const respondToActivityRequest = (request: ActivityRequest, status: 'accepted' | 'declined') => {
+    updateActivity.mutate({ id: request.id, data: { status } }, {
+      onSuccess: async () => {
+        setActivityNotice(status === 'accepted' ? 'You accepted the request.' : 'You declined the request.');
+        await client.invalidateQueries({ queryKey: getListActivityRequestsQueryKey() });
+      },
+      onError: () => setActivityNotice('Couldn’t update that request. Please try again.'),
+    });
+  };
+  const requestStateFor = (friendId: string, mode: ActivityMode): FriendRequestState[ActivityMode] => {
+    const pendingRequest = activityRequests.find((request) =>
+      request.otherStudent.userId === friendId &&
+      request.mode === mode &&
+      request.status === 'pending',
+    );
+    if (!pendingRequest) return undefined;
+    return pendingRequest.requesterId === user?.id ? 'sent' : 'incoming';
+  };
+
   return <div>
-    <PageHeader kicker="YOUR CIRCLE, TAKING SHAPE" title={<>Good to see <em>you here.</em></>} desc="A few hellos can turn into study partners, familiar faces, and plans worth keeping." />
-    <div className="connections-tabs" role="tablist" aria-label="Connection requests">
+    <PageHeader kicker="YOUR CIRCLE, TAKING SHAPE" title={<>Good to see <em>you here.</em></>} desc="Accept a hello to become friends, then send a quick study or play request whenever you like." />
+    <div className="connections-tabs" role="tablist" aria-label="Connections and activity requests">
       <button role="tab" aria-selected={tab === 'incoming'} className={tab === 'incoming' ? 'selected' : ''} onClick={() => setTab('incoming')}>Incoming <span>{incoming.length}</span></button>
       <button role="tab" aria-selected={tab === 'outgoing'} className={tab === 'outgoing' ? 'selected' : ''} onClick={() => setTab('outgoing')}>Sent <span>{outgoing.length}</span></button>
       <button role="tab" aria-selected={tab === 'connected'} className={tab === 'connected' ? 'selected' : ''} onClick={() => setTab('connected')}>Your people <span>{connected.length}</span></button>
+      <button role="tab" aria-selected={tab === 'activity'} className={tab === 'activity' ? 'selected' : ''} onClick={() => setTab('activity')}>Study / play <span>{incomingActivities.length}</span></button>
     </div>
-    {query.isLoading ? <div className="connection-list">{[0, 1, 2].map((item) => <div className="connection-skeleton skeleton" key={item} />)}</div> : query.isError ? <ErrorState message="Your connections aren't loading right now." retry={() => query.refetch()} /> : current.length ? <div className="connection-list">
-      {current.map((connection) => <ConnectionCard key={connection.id} connection={connection} tab={tab} pending={update.isPending && update.variables?.id === connection.id} onAccept={() => updateStatus(connection, 'accepted')} onDecline={() => updateStatus(connection, 'declined')} />)}
-    </div> : <EmptyState icon={<MessageCircle size={23} />} title={tab === 'incoming' ? 'A little quiet for now.' : tab === 'outgoing' ? 'No hellos sent yet.' : 'Your circle is just getting started.'} detail={tab === 'incoming' ? 'When someone reaches out, their note will land here.' : 'Explore students and find someone you’d like to meet.'} action={<Link href="/discover" className="button button-dark">Find your people <ArrowRight size={15} /></Link>} />}
+    {activityNotice && <div className={`inline-notice ${activityNotice.startsWith('Couldn’t') ? 'notice-error' : ''}`} role="status" data-testid="status-activity-request"><CheckCircle2 size={16} />{activityNotice}<button aria-label="Dismiss message" onClick={() => setActivityNotice('')}><X size={15} /></button></div>}
+
+    {tab === 'activity' ? (
+      activityQuery.isLoading ? <div className="connection-list">{[0, 1, 2].map((item) => <div className="connection-skeleton skeleton" key={item} />)}</div>
+        : activityQuery.isError ? <ErrorState message="Your study and play requests aren't loading right now." retry={() => activityQuery.refetch()} />
+          : activityRequests.length ? <div className="connection-list">
+            {activityRequests.map((request) => <ActivityRequestCard
+              key={request.id}
+              request={request}
+              currentUserId={user?.id || ''}
+              pending={updateActivity.isPending && updateActivity.variables?.id === request.id}
+              onRespond={(status) => respondToActivityRequest(request, status)}
+            />)}
+          </div>
+            : <EmptyState icon={<MessageCircle size={23} />} title="No study or play requests yet." detail="Send a quick request from one of your accepted connections to get a plan started." action={<button className="button button-dark" onClick={() => setTab('connected')}>See your friends <ArrowRight size={15} /></button>} />
+    ) : query.isLoading ? <div className="connection-list">{[0, 1, 2].map((item) => <div className="connection-skeleton skeleton" key={item} />)}</div>
+      : query.isError ? <ErrorState message="Your connections aren't loading right now." retry={() => query.refetch()} />
+        : current.length ? <div className="connection-list">
+          {current.map((connection) => {
+            const studentId = connection.otherStudent.userId;
+            const requestingFriend = createActivity.isPending && createActivity.variables?.data.recipientId === studentId;
+            return <ConnectionCard
+              key={connection.id}
+              connection={connection}
+              tab={tab}
+              pending={update.isPending && update.variables?.id === connection.id}
+              onAccept={() => updateConnectionStatus(connection, 'accepted')}
+              onDecline={() => updateConnectionStatus(connection, 'declined')}
+              requestState={{ study: requestStateFor(studentId, 'study'), play: requestStateFor(studentId, 'play') }}
+              requestPending={requestingFriend}
+              onRequestActivity={(mode) => sendActivityRequest(connection, mode)}
+              onOpenRequests={() => setTab('activity')}
+            />;
+          })}
+        </div>
+          : <EmptyState icon={<MessageCircle size={23} />} title={tab === 'incoming' ? 'A little quiet for now.' : tab === 'outgoing' ? 'No hellos sent yet.' : 'Your circle is just getting started.'} detail={tab === 'incoming' ? 'When someone reaches out, their note will land here.' : 'Explore students and find someone you’d like to meet.'} action={<Link href="/discover" className="button button-dark">Find your people <ArrowRight size={15} /></Link>} />}
     {update.isError && <div className="inline-notice notice-error" role="alert">Couldn’t update that connection. Try again.</div>}
   </div>;
 }
 
-function ConnectionCard({ connection, tab, pending, onAccept, onDecline }: { connection: Connection; tab: string; pending: boolean; onAccept: () => void; onDecline: () => void }) {
+function ConnectionCard({
+  connection,
+  tab,
+  pending,
+  onAccept,
+  onDecline,
+  requestState = {},
+  requestPending = false,
+  onRequestActivity,
+  onOpenRequests,
+}: {
+  connection: Connection;
+  tab: string;
+  pending: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+  requestState?: FriendRequestState;
+  requestPending?: boolean;
+  onRequestActivity?: (mode: ActivityMode) => void;
+  onOpenRequests?: () => void;
+}) {
   const student = connection.otherStudent;
+  const requestButton = (mode: ActivityMode) => {
+    const state = requestState[mode];
+    const label = state === 'sent'
+      ? 'Request sent'
+      : state === 'incoming'
+        ? 'Reply to request'
+        : mode === 'study' ? 'Ask to study' : 'Ask to play';
+    return <button
+      className="button button-outline"
+      onClick={() => state === 'incoming' ? onOpenRequests?.() : onRequestActivity?.(mode)}
+      disabled={requestPending || state === 'sent'}
+      aria-label={state === 'incoming' ? `Reply to ${student.displayName}'s ${mode} request` : `Send a ${mode} request to ${student.displayName}`}
+      data-testid={`button-${mode}-request-${student.userId}`}
+    >{mode === 'study' ? <BookOpen size={14} /> : <Sparkles size={14} />}{label}</button>;
+  };
   return <article className="connection-card" data-testid={`card-connection-${connection.id}`}><div className={`student-avatar avatar-${student.displayName.charCodeAt(0) % 5}`}>{initials(student.displayName)}</div>
     <div className="connection-copy"><h2>{student.displayName}</h2><p>{student.program} <span>·</span> {student.year} <span>·</span> {student.university}</p><p className="connection-bio">{student.bio || 'Looking forward to meeting more people on campus.'}</p><div className="student-tags">{student.interests.slice(0, 3).map((interest) => <span key={interest}>{interest}</span>)}</div></div>
-    <div className="connection-actions">{tab === 'incoming' ? <><button className="button button-dark" onClick={onAccept} disabled={pending} data-testid={`button-accept-${connection.id}`}>{pending ? 'One sec…' : <><Check size={15} /> Accept</>}</button><button className="text-button decline-button" onClick={onDecline} disabled={pending} data-testid={`button-decline-${connection.id}`}>Not now</button></> : tab === 'outgoing' ? <span className="status-pill"><Clock3 size={14} /> Waiting on a hello</span> : <span className="status-pill connected-pill"><CheckCircle2 size={14} /> Connected</span>}</div>
+    <div className={`connection-actions ${tab === 'connected' ? 'connection-friend-actions' : ''}`}>{tab === 'incoming' ? <><button className="button button-dark" onClick={onAccept} disabled={pending} data-testid={`button-accept-${connection.id}`}>{pending ? 'One sec…' : <><Check size={15} /> Accept</>}</button><button className="text-button decline-button" onClick={onDecline} disabled={pending} data-testid={`button-decline-${connection.id}`}>Not now</button></> : tab === 'outgoing' ? <span className="status-pill"><Clock3 size={14} /> Waiting on a hello</span> : <>
+      <span className="status-pill connected-pill"><CheckCircle2 size={14} /> Connected</span>
+      <div className="friend-activity-actions">{requestButton('study')}{requestButton('play')}</div>
+    </>}</div>
+  </article>;
+}
+
+function ActivityRequestCard({
+  request,
+  currentUserId,
+  pending,
+  onRespond,
+}: {
+  request: ActivityRequest;
+  currentUserId: string;
+  pending: boolean;
+  onRespond: (status: 'accepted' | 'declined') => void;
+}) {
+  const student = request.otherStudent;
+  const incoming = request.recipientId === currentUserId;
+  const activity = request.mode === 'study' ? 'study together' : 'play together';
+  const statusLabel = request.status === 'pending'
+    ? incoming ? 'Needs your reply' : 'Waiting for a reply'
+    : request.status === 'accepted' ? 'Accepted' : 'Declined';
+  return <article className="connection-card" data-testid={`card-activity-request-${request.id}`}>
+    <div className={`student-avatar avatar-${student.displayName.charCodeAt(0) % 5}`}>{initials(student.displayName)}</div>
+    <div className="connection-copy">
+      <h2>{student.displayName}</h2>
+      <p>{incoming ? `${student.displayName} asked to ${activity}.` : `You asked ${student.displayName} to ${activity}.`}</p>
+      <p className="connection-bio">{student.program} <span>·</span> {student.year}</p>
+    </div>
+    <div className="connection-actions">
+      {incoming && request.status === 'pending' ? <>
+        <button className="button button-dark" onClick={() => onRespond('accepted')} disabled={pending} data-testid={`button-accept-activity-${request.id}`}>{pending ? 'One sec…' : <><Check size={15} /> Accept</>}</button>
+        <button className="text-button decline-button" onClick={() => onRespond('declined')} disabled={pending} data-testid={`button-decline-activity-${request.id}`}>Not now</button>
+      </> : <span className={`status-pill ${request.status === 'accepted' ? 'connected-pill' : ''}`} data-testid={`status-activity-${request.id}`}>{statusLabel}</span>}
+    </div>
   </article>;
 }
 

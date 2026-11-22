@@ -18,6 +18,8 @@ tags:
     description: Study and play meetups
   - name: connections
     description: Student connection requests
+  - name: activity-requests
+    description: Quick study and play requests between friends
   - name: dashboard
     description: Community overview
 paths:
@@ -236,6 +238,61 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Connection"
+  /activity-requests:
+    get:
+      operationId: listActivityRequests
+      tags: [activity-requests]
+      summary: List study and play requests between friends
+      responses:
+        "200":
+          description: Requests sent or received by the signed-in student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityRequest"
+    post:
+      operationId: createActivityRequest
+      tags: [activity-requests]
+      summary: Send a quick study or play request to a friend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityRequestInput"
+      responses:
+        "201":
+          description: Created activity request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityRequest"
+  /activity-requests/{id}:
+    patch:
+      operationId: updateActivityRequest
+      tags: [activity-requests]
+      summary: Accept or decline a received activity request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityRequestUpdate"
+      responses:
+        "200":
+          description: Updated activity request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityRequest"
   /dashboard:
     get:
       operationId: getDashboardSummary
@@ -342,6 +399,29 @@ components:
       properties:
         recipientId: { type: string, minLength: 1 }
     ConnectionUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [accepted, declined] }
+    ActivityRequest:
+      type: object
+      required: [id, requesterId, recipientId, mode, status, createdAt, otherStudent]
+      properties:
+        id: { type: string }
+        requesterId: { type: string }
+        recipientId: { type: string }
+        mode: { type: string, enum: [study, play] }
+        status: { type: string, enum: [pending, accepted, declined] }
+        createdAt: { type: string, format: date-time }
+        otherStudent:
+          $ref: "#/components/schemas/StudentProfile"
+    ActivityRequestInput:
+      type: object
+      required: [recipientId, mode]
+      properties:
+        recipientId: { type: string, minLength: 1 }
+        mode: { type: string, enum: [study, play] }
+    ActivityRequestUpdate:
       type: object
       required: [status]
       properties:

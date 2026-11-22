@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
 import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
+import { getVerifiedFriendIds } from "../../lib/friendAccess";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -42,6 +43,10 @@ router.get("/dashboard", async (req, res): Promise<void> => {
     .from(profilesTable)
     .where(eq(profilesTable.verifiedSchool, school));
   const campusUserIds = campusUsers.map(({ userId: campusUserId }) => campusUserId);
+  const visibleCreatorIds = [
+    userId,
+    ...(await getVerifiedFriendIds(userId, school)),
+  ];
   const now = new Date();
   const [
     [studentCount],
@@ -63,6 +68,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
           eq(meetupsTable.mode, "study"),
           gt(meetupsTable.startsAt, now),
           eq(profilesTable.verifiedSchool, school),
+          inArray(meetupsTable.creatorId, visibleCreatorIds),
         ),
       ),
     db
@@ -74,6 +80,7 @@ router.get("/dashboard", async (req, res): Promise<void> => {
           eq(meetupsTable.mode, "play"),
           gt(meetupsTable.startsAt, now),
           eq(profilesTable.verifiedSchool, school),
+          inArray(meetupsTable.creatorId, visibleCreatorIds),
         ),
       ),
     db

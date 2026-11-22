@@ -6,6 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityRequest';
+export * from './activityRequestInput';
+export * from './activityRequestInputMode';
+export * from './activityRequestMode';
+export * from './activityRequestStatus';
+export * from './activityRequestUpdate';
+export * from './activityRequestUpdateStatus';
 export * from './connection';
 export * from './connectionInput';
 export * from './connectionStatus';

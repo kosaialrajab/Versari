@@ -19,6 +19,10 @@ import {
   profilesTable,
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
+import {
+  areAcceptedFriends,
+  getVerifiedFriendIds,
+} from "../../lib/friendAccess";
 import { getVersariSchool, requireAuth } from "../../middlewares/requireAuth";
 import type { VersariSchool } from "../../lib/schoolAccess";
 
@@ -32,6 +36,10 @@ async function buildMeetups(
   search?: string,
 ) {
   const now = new Date();
+  const visibleCreatorIds = [
+    currentUserId,
+    ...(await getVerifiedFriendIds(currentUserId, school)),
+  ];
   const modeFilter = mode ? eq(meetupsTable.mode, mode) : undefined;
   const searchFilter = search
     ? or(
@@ -60,6 +68,7 @@ async function buildMeetups(
       and(
         gt(meetupsTable.startsAt, now),
         eq(profilesTable.verifiedSchool, school),
+        inArray(meetupsTable.creatorId, visibleCreatorIds),
         modeFilter,
         searchFilter,
       ),
@@ -259,6 +268,13 @@ router.post("/meetups/:id/join", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Meetup not found." });
     return;
   }
+  if (
+    meetup.creatorId !== userId &&
+    !(await areAcceptedFriends(userId, meetup.creatorId))
+  ) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
   const [profile] = await db
     .select({ userId: profilesTable.userId })
     .from(profilesTable)
@@ -350,6 +366,13 @@ router.delete("/meetups/:id/join", async (req, res): Promise<void> => {
     )
     .limit(1);
   if (!meetup) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  if (
+    meetup.creatorId !== userId &&
+    !(await areAcceptedFriends(userId, meetup.creatorId))
+  ) {
     res.status(404).json({ error: "Meetup not found." });
     return;
   }

@@ -171,6 +171,59 @@ export interface ConnectionUpdate {
   status: ConnectionUpdateStatus;
 }
 
+export type ActivityRequestMode = typeof ActivityRequestMode[keyof typeof ActivityRequestMode];
+
+
+export const ActivityRequestMode = {
+  study: 'study',
+  play: 'play',
+} as const;
+
+export type ActivityRequestStatus = typeof ActivityRequestStatus[keyof typeof ActivityRequestStatus];
+
+
+export const ActivityRequestStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface ActivityRequest {
+  id: string;
+  requesterId: string;
+  recipientId: string;
+  mode: ActivityRequestMode;
+  status: ActivityRequestStatus;
+  createdAt: string;
+  otherStudent: StudentProfile;
+}
+
+export type ActivityRequestInputMode = typeof ActivityRequestInputMode[keyof typeof ActivityRequestInputMode];
+
+
+export const ActivityRequestInputMode = {
+  study: 'study',
+  play: 'play',
+} as const;
+
+export interface ActivityRequestInput {
+  /** @minLength 1 */
+  recipientId: string;
+  mode: ActivityRequestInputMode;
+}
+
+export type ActivityRequestUpdateStatus = typeof ActivityRequestUpdateStatus[keyof typeof ActivityRequestUpdateStatus];
+
+
+export const ActivityRequestUpdateStatus = {
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface ActivityRequestUpdate {
+  status: ActivityRequestUpdateStatus;
+}
+
 export interface DashboardSummary {
   studentCount: number;
   studyMeetupCount: number;

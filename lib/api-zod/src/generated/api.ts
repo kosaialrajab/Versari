@@ -317,6 +317,98 @@ export const UpdateConnectionResponse = zod.object({
 
 
 /**
+ * @summary List study and play requests between friends
+ */
+export const ListActivityRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "requesterId": zod.string(),
+  "recipientId": zod.string(),
+  "mode": zod.enum(['study', 'play']),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.coerce.date(),
+  "otherStudent": zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string(),
+  "university": zod.string(),
+  "program": zod.string(),
+  "year": zod.string(),
+  "bio": zod.string(),
+  "interests": zod.array(zod.string()),
+  "lookingFor": zod.array(zod.enum(['study', 'play'])),
+  "studyStyle": zod.string(),
+  "availability": zod.string()
+})
+})
+export const ListActivityRequestsResponse = zod.array(ListActivityRequestsResponseItem)
+
+
+/**
+ * @summary Send a quick study or play request to a friend
+ */
+
+
+
+export const CreateActivityRequestBody = zod.object({
+  "recipientId": zod.string().min(1),
+  "mode": zod.enum(['study', 'play'])
+})
+
+export const CreateActivityRequestResponse = zod.object({
+  "id": zod.string(),
+  "requesterId": zod.string(),
+  "recipientId": zod.string(),
+  "mode": zod.enum(['study', 'play']),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.coerce.date(),
+  "otherStudent": zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string(),
+  "university": zod.string(),
+  "program": zod.string(),
+  "year": zod.string(),
+  "bio": zod.string(),
+  "interests": zod.array(zod.string()),
+  "lookingFor": zod.array(zod.enum(['study', 'play'])),
+  "studyStyle": zod.string(),
+  "availability": zod.string()
+})
+})
+
+
+/**
+ * @summary Accept or decline a received activity request
+ */
+export const UpdateActivityRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateActivityRequestBody = zod.object({
+  "status": zod.enum(['accepted', 'declined'])
+})
+
+export const UpdateActivityRequestResponse = zod.object({
+  "id": zod.string(),
+  "requesterId": zod.string(),
+  "recipientId": zod.string(),
+  "mode": zod.enum(['study', 'play']),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.coerce.date(),
+  "otherStudent": zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string(),
+  "university": zod.string(),
+  "program": zod.string(),
+  "year": zod.string(),
+  "bio": zod.string(),
+  "interests": zod.array(zod.string()),
+  "lookingFor": zod.array(zod.enum(['study', 'play'])),
+  "studyStyle": zod.string(),
+  "availability": zod.string()
+})
+})
+
+
+/**
  * @summary Get community activity totals
  */
 export const GetDashboardSummaryResponse = zod.object({
