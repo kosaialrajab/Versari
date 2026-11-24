@@ -25,6 +25,8 @@ export * from './listMeetupsParams';
 export * from './listStudentsMode';
 export * from './listStudentsParams';
 export * from './meetup';
+export * from './meetupCallToken';
+export * from './meetupCallTokenMode';
 export * from './meetupInput';
 export * from './meetupInputMode';
 export * from './meetupMode';

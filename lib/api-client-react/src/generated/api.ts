@@ -36,6 +36,7 @@ import type {
   ListMeetupsParams,
   ListStudentsParams,
   Meetup,
+  MeetupCallToken,
   MeetupInput,
   ProfileInput,
   ProfileResult,
@@ -484,7 +485,7 @@ export const getListMeetupsUrl = (params?: ListMeetupsParams,) => {
 }
 
 /**
- * @summary Browse study and play meetups
+ * @summary Browse study and activity meetups
  */
 export const listMeetups = async (params?: ListMeetupsParams, options?: Parameters<typeof customFetch>[1]): Promise<Meetup[]> => {
 
@@ -555,7 +556,7 @@ export function useListMeetups<TData = Awaited<ReturnType<typeof listMeetups>>, 
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Browse study and play meetups
+ * @summary Browse study and activity meetups
  */
 
 export function useListMeetups<TData = Awaited<ReturnType<typeof listMeetups>>, TError = ErrorType<unknown>>(
@@ -886,6 +887,80 @@ export const useLeaveMeetup = <TError = ErrorType<unknown>,
       return useMutation(getLeaveMeetupMutationOptions(options), queryClient);
     }
 
+export const getCreateMeetupCallTokenUrl = (id: string,) => {
+
+
+
+
+  return `/api/meetups/${id}/call-token`
+}
+
+/**
+ * @summary Create a short-lived call token for a meetup member
+ */
+export const createMeetupCallToken = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<MeetupCallToken> => {
+
+  return customFetch<MeetupCallToken>(getCreateMeetupCallTokenUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateMeetupCallTokenMutationKey = () => ['createMeetupCallToken'] as const;
+
+export const getCreateMeetupCallTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext> => {
+
+const mutationKey = getCreateMeetupCallTokenMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeetupCallToken>>, CreateMeetupCallTokenMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  createMeetupCallToken(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMeetupCallTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createMeetupCallToken>>>
+
+    export type CreateMeetupCallTokenMutationError = ErrorType<unknown>
+    export type CreateMeetupCallTokenMutationVariables = {id: string}
+
+    /**
+ * @summary Create a short-lived call token for a meetup member
+ */
+export const useCreateMeetupCallToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createMeetupCallToken>>,
+        TError,
+        CreateMeetupCallTokenMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateMeetupCallTokenMutationOptions(options), queryClient);
+    }
+
 export const getListConnectionsUrl = () => {
 
 
@@ -1173,7 +1248,7 @@ export const getListActivityRequestsUrl = () => {
 }
 
 /**
- * @summary List study and play requests between friends
+ * @summary List study and activity requests between friends
  */
 export const listActivityRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<ActivityRequest[]> => {
 
@@ -1244,7 +1319,7 @@ export function useListActivityRequests<TData = Awaited<ReturnType<typeof listAc
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary List study and play requests between friends
+ * @summary List study and activity requests between friends
  */
 
 export function useListActivityRequests<TData = Awaited<ReturnType<typeof listActivityRequests>>, TError = ErrorType<unknown>>(
@@ -1274,7 +1349,7 @@ export const getCreateActivityRequestUrl = () => {
 }
 
 /**
- * @summary Send a quick study or play request to a friend
+ * @summary Send a quick study or activity request to a friend
  */
 export const createActivityRequest = async (activityRequestInput: ActivityRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<ActivityRequest> => {
 
@@ -1340,7 +1415,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateActivityRequestMutationVariables = {data: BodyType<ActivityRequestInput>}
 
     /**
- * @summary Send a quick study or play request to a friend
+ * @summary Send a quick study or activity request to a friend
  */
 export const useCreateActivityRequest = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createActivityRequest>>, TError,CreateActivityRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

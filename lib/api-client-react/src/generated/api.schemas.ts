@@ -96,6 +96,7 @@ export interface Meetup {
   topic: string;
   description: string;
   location: string;
+  isOnline: boolean;
   startsAt: string;
   capacity: number;
   attendeeCount: number;
@@ -129,12 +130,29 @@ export interface MeetupInput {
      * @maxLength 120
      */
   location: string;
+  isOnline: boolean;
   startsAt: string;
   /**
      * @minimum 2
      * @maximum 50
      */
   capacity: number;
+}
+
+export type MeetupCallTokenMode = typeof MeetupCallTokenMode[keyof typeof MeetupCallTokenMode];
+
+
+export const MeetupCallTokenMode = {
+  study: 'study',
+  play: 'play',
+} as const;
+
+export interface MeetupCallToken {
+  appId: string;
+  roomName: string;
+  token: string;
+  title: string;
+  mode: MeetupCallTokenMode;
 }
 
 export type ConnectionStatus = typeof ConnectionStatus[keyof typeof ConnectionStatus];

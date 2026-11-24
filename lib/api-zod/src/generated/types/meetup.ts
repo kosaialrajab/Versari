@@ -16,6 +16,7 @@ export interface Meetup {
   topic: string;
   description: string;
   location: string;
+  isOnline: boolean;
   startsAt: Date;
   capacity: number;
   attendeeCount: number;

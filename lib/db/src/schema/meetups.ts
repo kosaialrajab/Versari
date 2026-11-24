@@ -1,5 +1,6 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   integer,
   pgTable,
   primaryKey,
@@ -19,6 +20,7 @@ export const meetupsTable = pgTable("versari_meetups", {
   topic: text("topic").notNull(),
   description: text("description").notNull().default(""),
   location: text("location").notNull(),
+  isOnline: boolean("is_online").notNull().default(false),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   capacity: integer("capacity").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })

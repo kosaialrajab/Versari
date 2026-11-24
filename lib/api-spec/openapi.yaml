@@ -15,11 +15,11 @@ tags:
   - name: students
     description: Discover other students
   - name: meetups
-    description: Study and play meetups
+    description: Study and activity meetups
   - name: connections
     description: Student connection requests
   - name: activity-requests
-    description: Quick study and play requests between friends
+    description: Quick study and activity requests between friends
   - name: dashboard
     description: Community overview
 paths:
@@ -95,7 +95,7 @@ paths:
     get:
       operationId: listMeetups
       tags: [meetups]
-      summary: Browse study and play meetups
+      summary: Browse study and activity meetups
       parameters:
         - name: mode
           in: query
@@ -183,6 +183,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Meetup"
+  /meetups/{id}/call-token:
+    post:
+      operationId: createMeetupCallToken
+      tags: [meetups]
+      summary: Create a short-lived call token for a meetup member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authenticated meeting room details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetupCallToken"
   /connections:
     get:
       operationId: listConnections
@@ -242,7 +260,7 @@ paths:
     get:
       operationId: listActivityRequests
       tags: [activity-requests]
-      summary: List study and play requests between friends
+      summary: List study and activity requests between friends
       responses:
         "200":
           description: Requests sent or received by the signed-in student
@@ -255,7 +273,7 @@ paths:
     post:
       operationId: createActivityRequest
       tags: [activity-requests]
-      summary: Send a quick study or play request to a friend
+      summary: Send a quick study or activity request to a friend
       requestBody:
         required: true
         content:
@@ -358,7 +376,7 @@ components:
         availability: { type: string, maxLength: 120 }
     Meetup:
       type: object
-      required: [id, creatorId, creatorName, mode, title, topic, description, location, startsAt, capacity, attendeeCount, joined]
+      required: [id, creatorId, creatorName, mode, title, topic, description, location, isOnline, startsAt, capacity, attendeeCount, joined]
       properties:
         id: { type: string }
         creatorId: { type: string }
@@ -368,21 +386,32 @@ components:
         topic: { type: string }
         description: { type: string }
         location: { type: string }
+        isOnline: { type: boolean }
         startsAt: { type: string, format: date-time }
         capacity: { type: integer }
         attendeeCount: { type: integer }
         joined: { type: boolean }
     MeetupInput:
       type: object
-      required: [mode, title, topic, description, location, startsAt, capacity]
+      required: [mode, title, topic, description, location, isOnline, startsAt, capacity]
       properties:
         mode: { type: string, enum: [study, play] }
         title: { type: string, minLength: 1, maxLength: 120 }
         topic: { type: string, minLength: 1, maxLength: 80 }
         description: { type: string, maxLength: 500 }
         location: { type: string, minLength: 1, maxLength: 120 }
+        isOnline: { type: boolean }
         startsAt: { type: string, format: date-time }
         capacity: { type: integer, minimum: 2, maximum: 50 }
+    MeetupCallToken:
+      type: object
+      required: [appId, roomName, token, title, mode]
+      properties:
+        appId: { type: string }
+        roomName: { type: string }
+        token: { type: string }
+        title: { type: string }
+        mode: { type: string, enum: [study, play] }
     Connection:
       type: object
       required: [id, requesterId, recipientId, status, otherStudent]

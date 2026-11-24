@@ -6,14 +6,15 @@ import { shadcn } from '@clerk/themes';
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronDown, CircleHelp, Clock3, Compass, GraduationCap, Heart, MapPin,
-  Menu, MessageCircle, Plus, Search, SlidersHorizontal, Sparkles, Users, X,
+  Menu, MessageCircle, Plus, Search, SlidersHorizontal, Sparkles, Users, Video, X,
 } from 'lucide-react';
-import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
+import { JaaSMeeting } from '@jitsi/react-sdk';
 import { campusFromVerifiedEmails } from '@/lib/campus';
 import {
   getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListActivityRequestsQueryKey,
   getListConnectionsQueryKey, getListMeetupsQueryKey, getListStudentsQueryKey,
-  useCreateActivityRequest, useCreateConnection, useCreateMeetup, useCancelMeetup,
+  useCreateActivityRequest, useCreateConnection, useCreateMeetup, useCreateMeetupCallToken, useCancelMeetup,
   useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
   useListActivityRequests, useListConnections, useListMeetups, useListStudents,
   useSaveMyProfile, useUpdateActivityRequest, useUpdateConnection,
@@ -162,7 +163,7 @@ function Landing() {
           <div className="hero-side-label mono">GOOD COMPANY / VOL. 01</div>
         </section>
         <section className="ticker" aria-label="Versari community">
-          <div>STUDY TOGETHER <span>·</span> PLAY A LITTLE <span>·</span> FIND YOUR PEOPLE <span>·</span> MAKE CAMPUS YOURS <span>·</span></div>
+          <div>STUDY TOGETHER <span>·</span> TRY ACTIVITIES <span>·</span> FIND YOUR PEOPLE <span>·</span> MAKE CAMPUS YOURS <span>·</span></div>
         </section>
         <section className="how-section" id="how-it-works">
           <div className="section-intro">
@@ -304,7 +305,7 @@ function DiscoverPage() {
   });
   return (
     <div>
-      <PageHeader kicker="YOUR CAMPUS, A LITTLE CLOSER" title={<>Find your <em>people.</em></>} desc="People to study with, play with, or just make a Tuesday feel less Tuesday." action={<div className="campus-count"><Users size={17} /><strong>{summaryQuery.data?.studentCount ?? '—'}</strong><span>students here</span></div>} />
+      <PageHeader kicker="YOUR CAMPUS, A LITTLE CLOSER" title={<>Find your <em>people.</em></>} desc="People to study with, try new activities with, or just make a Tuesday feel less Tuesday." action={<div className="campus-count"><Users size={17} /><strong>{summaryQuery.data?.studentCount ?? '—'}</strong><span>students here</span></div>} />
       <section className="discover-panel">
         <div className="discover-toolbar">
           <label className="search-box"><Search size={19} /><span className="sr-only">Search student profiles</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, course, or interest" data-testid="input-student-search" /></label>
@@ -312,7 +313,7 @@ function DiscoverPage() {
           <div className="filter-pills" role="group" aria-label="Filter students by activity">
             <button className={`filter-pill ${!mode ? 'selected' : ''}`} onClick={() => setMode('')} data-testid="filter-all">Everyone</button>
             <button className={`filter-pill ${mode === 'study' ? 'selected' : ''}`} onClick={() => setMode(mode === 'study' ? '' : 'study')} data-testid="filter-study"><BookOpen size={14} /> Study</button>
-            <button className={`filter-pill ${mode === 'play' ? 'selected' : ''}`} onClick={() => setMode(mode === 'play' ? '' : 'play')} data-testid="filter-play"><Sparkles size={14} /> Play</button>
+            <button className={`filter-pill ${mode === 'play' ? 'selected' : ''}`} onClick={() => setMode(mode === 'play' ? '' : 'play')} data-testid="filter-activities"><Sparkles size={14} /> Activities</button>
           </div>
         </div>
         {notice && <div className={`inline-notice ${notice.includes('did not') ? 'notice-error' : ''}`} role="status"><CheckCircle2 size={16} />{notice}<button aria-label="Dismiss message" onClick={() => setNotice('')}><X size={15} /></button></div>}
@@ -337,7 +338,7 @@ function StudentCard({ student, onConnect, pending }: { student: StudentProfile;
     <h2>{student.displayName}</h2><p className="student-meta">{student.program} <span>·</span> {student.year}</p>
     <p className="student-campus"><GraduationCap size={14} />{student.university}</p>
     <p className="student-bio">{student.bio || 'A new face on campus, ready to meet good people.'}</p>
-    <div className="student-tags">{student.lookingFor.map((activity) => <span className="mode-tag" key={`looking-${activity}`}>{activity === 'study' ? 'Study partner' : 'Play together'}</span>)}{student.interests.slice(0, 3).map((interest) => <span key={interest}>{interest}</span>)}</div>
+    <div className="student-tags">{student.lookingFor.map((activity) => <span className="mode-tag" key={`looking-${activity}`}>{activity === 'study' ? 'Study partner' : 'Activity buddy'}</span>)}{student.interests.slice(0, 3).map((interest) => <span key={interest}>{interest}</span>)}</div>
     <div className="student-details"><span><BookOpen size={14} />{student.studyStyle || 'Flexible study style'}</span><span><Clock3 size={14} />{student.availability || 'Schedule varies'}</span></div>
     <button className="button button-outline student-connect" onClick={onConnect} disabled={pending} data-testid={`button-connect-${student.userId}`}>{pending ? 'Sending…' : <>Say hello <ArrowRight size={15} /></>}</button>
   </article>;
@@ -381,7 +382,7 @@ function MeetupPage() {
         <div className="filter-pills" role="group" aria-label="Filter meetups">
           <button className={`filter-pill ${!mode ? 'selected' : ''}`} onClick={() => setMode('')}>All plans</button>
           <button className={`filter-pill ${mode === 'study' ? 'selected' : ''}`} onClick={() => setMode(mode === 'study' ? '' : 'study')}><BookOpen size={14} /> Study</button>
-          <button className={`filter-pill ${mode === 'play' ? 'selected' : ''}`} onClick={() => setMode(mode === 'play' ? '' : 'play')}><Sparkles size={14} /> Play</button>
+          <button className={`filter-pill ${mode === 'play' ? 'selected' : ''}`} onClick={() => setMode(mode === 'play' ? '' : 'play')}><Sparkles size={14} /> Activities</button>
         </div>
       </div>
       {createMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t create that meetup. Check your details and try again.</div>}
@@ -400,10 +401,10 @@ function MeetupCard({ meetup, isOrganizer, onCancel, onToggle, pending }: { meet
   const date = Number.isNaN(start.valueOf()) ? 'Time to be announced' : new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(start);
   const filled = meetup.attendeeCount >= meetup.capacity;
   return <article className={`meetup-card ${isStudy ? 'meetup-study' : 'meetup-play'}`} data-testid={`card-meetup-${meetup.id}`}>
-    <div className="meetup-card-head"><span className={`meetup-type ${isStudy ? 'type-study' : 'type-play'}`}>{isStudy ? <BookOpen size={14} /> : <Sparkles size={14} />}{isStudy ? 'STUDY SESSION' : 'OFF THE CLOCK'}</span><span className="meetup-seats">{meetup.attendeeCount}/{meetup.capacity} spots</span></div>
+    <div className="meetup-card-head"><span className={`meetup-type ${isStudy ? 'type-study' : 'type-play'}`}>{isStudy ? <BookOpen size={14} /> : <Sparkles size={14} />}{isStudy ? 'STUDY SESSION' : 'ACTIVITY SESSION'}</span><span className="meetup-seats">{meetup.attendeeCount}/{meetup.capacity} spots</span></div>
     <h2>{meetup.title}</h2><div className="meetup-topic">{meetup.topic}</div><p className="meetup-description">{meetup.description || 'A simple plan, made better with company.'}</p>
-    <div className="meetup-info"><span><CalendarDays size={15} />{date}</span><span><MapPin size={15} />{meetup.location}</span></div>
-    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div>{isOrganizer ? <button className="button button-cancel" onClick={onCancel} disabled={pending} data-testid={`button-cancel-${meetup.id}`}><X size={14} />{pending ? 'Cancelling…' : 'Cancel meetup'}</button> : <button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button>}</div>
+    <div className="meetup-info"><span><CalendarDays size={15} />{date}</span><span>{meetup.isOnline ? <Video size={15} /> : <MapPin size={15} />}{meetup.isOnline ? 'Online call' : meetup.location}</span></div>
+    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div><div className="meetup-actions">{meetup.isOnline && meetup.joined && <Link className="button button-coral meetup-call-button" href={`/meetups/${meetup.id}/call`} data-testid={`button-call-${meetup.id}`}><Video size={14} /> Join call</Link>}{isOrganizer ? <button className="button button-cancel" onClick={onCancel} disabled={pending} data-testid={`button-cancel-${meetup.id}`}><X size={14} />{pending ? 'Cancelling…' : 'Cancel meetup'}</button> : <button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button>}</div></div>
   </article>;
 }
 
@@ -413,26 +414,28 @@ function MeetupSkeletons() {
 
 function MeetupDialog({ onClose, onSubmit, pending }: { onClose: () => void; onSubmit: (data: MeetupInput) => void; pending: boolean }) {
   const [mode, setMode] = useState<'study' | 'play'>('study');
+  const [isOnline, setIsOnline] = useState(false);
   const [error, setError] = useState('');
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const title = String(form.get('title') || '').trim();
     const topic = String(form.get('topic') || '').trim();
-    const location = String(form.get('location') || '').trim();
-    if (!title || !topic || !location) { setError('Add a title, topic, and place so people know what they’re joining.'); return; }
+    const location = isOnline ? 'Online call' : String(form.get('location') || '').trim();
+    if (!title || !topic || (!isOnline && !location)) { setError('Add a title, topic, and place so people know what they’re joining.'); return; }
     const date = String(form.get('startsAt') || '');
     if (!date || new Date(date).getTime() <= Date.now()) { setError('Choose a time in the future.'); return; }
-    onSubmit({ mode, title, topic, location, startsAt: new Date(date).toISOString(), description: String(form.get('description') || '').trim(), capacity: Number(form.get('capacity') || 6) });
+    onSubmit({ mode, title, topic, location, isOnline, startsAt: new Date(date).toISOString(), description: String(form.get('description') || '').trim(), capacity: Number(form.get('capacity') || 6) });
   };
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="meetup-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
     <div className="dialog-heading"><div><span className="eyebrow">MAKE IT HAPPEN</span><h2 id="dialog-title" className="display">Start a little <em>something.</em></h2></div><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20} /></button></div>
     <form onSubmit={submit} className="form-stack">
-      <div className="mode-switch" role="group" aria-label="Meetup type"><button type="button" className={mode === 'study' ? 'active' : ''} onClick={() => setMode('study')}><BookOpen size={16} /> Study together</button><button type="button" className={mode === 'play' ? 'active' : ''} onClick={() => setMode('play')}><Sparkles size={16} /> Play / hang out</button></div>
+      <div className="mode-switch" role="group" aria-label="Meetup type"><button type="button" className={mode === 'study' ? 'active' : ''} onClick={() => setMode('study')}><BookOpen size={16} /> Study together</button><button type="button" className={mode === 'play' ? 'active' : ''} onClick={() => setMode('play')}><Sparkles size={16} /> Activities</button></div>
       <label className="field-label">Give it a name<input name="title" required maxLength={120} placeholder="A name people can picture" /></label>
-      <label className="field-label">{mode === 'study' ? 'What are we working on?' : 'What’s the plan?'}<input name="topic" required maxLength={80} placeholder={mode === 'study' ? 'Biology midterm review' : 'Board games at the student lounge'} /></label>
+      <label className="field-label">{mode === 'study' ? 'What are we working on?' : 'What activity are you planning?'}<input name="topic" required maxLength={80} placeholder={mode === 'study' ? 'Biology midterm review' : 'A co-op game or creative session'} /></label>
       <label className="field-label">A little more detail <span className="optional">optional</span><textarea name="description" maxLength={500} rows={3} placeholder="The vibe, what to bring, anything useful…" /></label>
-      <div className="form-row"><label className="field-label">Where<input name="location" required maxLength={120} placeholder="Library, room 2B" /></label><label className="field-label">When<input name="startsAt" type="datetime-local" required /></label></div>
+      <fieldset className="online-choice"><legend className="field-label">How are you meeting?</legend><div className="mode-switch"><button type="button" className={!isOnline ? 'active' : ''} onClick={() => setIsOnline(false)}><MapPin size={15} /> In person</button><button type="button" className={isOnline ? 'active' : ''} onClick={() => setIsOnline(true)}><Video size={15} /> Online call</button></div></fieldset>
+      <div className="form-row">{isOnline ? <div className="online-meetup-note"><Video size={17} /><span><strong>Your Versari call room will be ready.</strong><small>Only students who join the meetup can enter.</small></span></div> : <label className="field-label">Where<input name="location" required maxLength={120} placeholder="Library, room 2B" /></label>}<label className="field-label">When<input name="startsAt" type="datetime-local" required /></label></div>
       <label className="field-label capacity-field">Group size<select name="capacity" defaultValue="6"><option value="2">2 people</option><option value="4">4 people</option><option value="6">6 people</option><option value="10">10 people</option><option value="15">15 people</option><option value="25">25 people</option><option value="50">Up to 50</option></select></label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="dialog-actions"><button type="button" className="button button-outline" onClick={onClose}>Cancel</button><button type="submit" className="button button-coral" disabled={pending}>{pending ? 'Putting it together…' : <>Post meetup <ArrowRight size={15} /></>}</button></div>
@@ -480,7 +483,7 @@ function ConnectionsPage() {
   const sendActivityRequest = (connection: Connection, mode: ActivityMode) => {
     createActivity.mutate({ data: { recipientId: connection.otherStudent.userId, mode } }, {
       onSuccess: async () => {
-        setActivityNotice(`Your ${mode === 'study' ? 'study' : 'play'} request was sent to ${connection.otherStudent.displayName.split(' ')[0]}.`);
+        setActivityNotice(`Your ${mode === 'study' ? 'study' : 'activity'} request was sent to ${connection.otherStudent.displayName.split(' ')[0]}.`);
         await client.invalidateQueries({ queryKey: getListActivityRequestsQueryKey() });
       },
       onError: () => setActivityNotice('Couldn’t send that request. There may already be one waiting.'),
@@ -506,18 +509,18 @@ function ConnectionsPage() {
   };
 
   return <div>
-    <PageHeader kicker="YOUR CIRCLE, TAKING SHAPE" title={<>Good to see <em>you here.</em></>} desc="Accept a hello to become friends, then send a quick study or play request whenever you like." />
+      <PageHeader kicker="YOUR CIRCLE, TAKING SHAPE" title={<>Good to see <em>you here.</em></>} desc="Accept a hello to become friends, then send a quick study or activity request whenever you like." />
     <div className="connections-tabs" role="tablist" aria-label="Connections and activity requests">
       <button role="tab" aria-selected={tab === 'incoming'} className={tab === 'incoming' ? 'selected' : ''} onClick={() => setTab('incoming')}>Incoming <span>{incoming.length}</span></button>
       <button role="tab" aria-selected={tab === 'outgoing'} className={tab === 'outgoing' ? 'selected' : ''} onClick={() => setTab('outgoing')}>Sent <span>{outgoing.length}</span></button>
       <button role="tab" aria-selected={tab === 'connected'} className={tab === 'connected' ? 'selected' : ''} onClick={() => setTab('connected')}>Your people <span>{connected.length}</span></button>
-      <button role="tab" aria-selected={tab === 'activity'} className={tab === 'activity' ? 'selected' : ''} onClick={() => setTab('activity')}>Study / play <span>{incomingActivities.length}</span></button>
+      <button role="tab" aria-selected={tab === 'activity'} className={tab === 'activity' ? 'selected' : ''} onClick={() => setTab('activity')}>Study / activities <span>{incomingActivities.length}</span></button>
     </div>
     {activityNotice && <div className={`inline-notice ${activityNotice.startsWith('Couldn’t') ? 'notice-error' : ''}`} role="status" data-testid="status-activity-request"><CheckCircle2 size={16} />{activityNotice}<button aria-label="Dismiss message" onClick={() => setActivityNotice('')}><X size={15} /></button></div>}
 
     {tab === 'activity' ? (
       activityQuery.isLoading ? <div className="connection-list">{[0, 1, 2].map((item) => <div className="connection-skeleton skeleton" key={item} />)}</div>
-        : activityQuery.isError ? <ErrorState message="Your study and play requests aren't loading right now." retry={() => activityQuery.refetch()} />
+        : activityQuery.isError ? <ErrorState message="Your study and activity requests aren't loading right now." retry={() => activityQuery.refetch()} />
           : activityRequests.length ? <div className="connection-list">
             {activityRequests.map((request) => <ActivityRequestCard
               key={request.id}
@@ -527,7 +530,7 @@ function ConnectionsPage() {
               onRespond={(status) => respondToActivityRequest(request, status)}
             />)}
           </div>
-            : <EmptyState icon={<MessageCircle size={23} />} title="No study or play requests yet." detail="Send a quick request from one of your accepted connections to get a plan started." action={<button className="button button-dark" onClick={() => setTab('connected')}>See your friends <ArrowRight size={15} /></button>} />
+            : <EmptyState icon={<MessageCircle size={23} />} title="No study or activity requests yet." detail="Send a quick request from one of your accepted connections to get a plan started." action={<button className="button button-dark" onClick={() => setTab('connected')}>See your friends <ArrowRight size={15} /></button>} />
     ) : query.isLoading ? <div className="connection-list">{[0, 1, 2].map((item) => <div className="connection-skeleton skeleton" key={item} />)}</div>
       : query.isError ? <ErrorState message="Your connections aren't loading right now." retry={() => query.refetch()} />
         : current.length ? <div className="connection-list">
@@ -577,16 +580,17 @@ function ConnectionCard({
   const student = connection.otherStudent;
   const requestButton = (mode: ActivityMode) => {
     const state = requestState[mode];
+    const activityLabel = mode === 'study' ? 'study' : 'activities';
     const label = state === 'sent'
       ? 'Request sent'
       : state === 'incoming'
         ? 'Reply to request'
-        : mode === 'study' ? 'Ask to study' : 'Ask to play';
+        : mode === 'study' ? 'Ask to study' : 'Ask about activities';
     return <button
       className="button button-outline"
       onClick={() => state === 'incoming' ? onOpenRequests?.() : onRequestActivity?.(mode)}
       disabled={requestPending || state === 'sent'}
-      aria-label={state === 'incoming' ? `Reply to ${student.displayName}'s ${mode} request` : `Send a ${mode} request to ${student.displayName}`}
+      aria-label={state === 'incoming' ? `Reply to ${student.displayName}'s ${activityLabel} request` : `Send a ${activityLabel} request to ${student.displayName}`}
       data-testid={`button-${mode}-request-${student.userId}`}
     >{mode === 'study' ? <BookOpen size={14} /> : <Sparkles size={14} />}{label}</button>;
   };
@@ -612,7 +616,7 @@ function ActivityRequestCard({
 }) {
   const student = request.otherStudent;
   const incoming = request.recipientId === currentUserId;
-  const activity = request.mode === 'study' ? 'study together' : 'play together';
+  const activity = request.mode === 'study' ? 'study together' : 'do activities together';
   const statusLabel = request.status === 'pending'
     ? incoming ? 'Needs your reply' : 'Waiting for a reply'
     : request.status === 'accepted' ? 'Accepted' : 'Declined';
@@ -690,7 +694,7 @@ function ProfilePage() {
       <label className="field-label">Things you’re into <span className="optional">Separate with commas · up to 12</span><input name="interests" maxLength={600} value={values.interests.join(', ')} onChange={(event) => setDraft((current) => ({ ...(current || values), interests: event.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12) }))} placeholder="Film photography, climbing, ramen…" /></label>
       <fieldset className="activity-fieldset"><legend className="field-label">I’d like to find people to…</legend><div className="activity-options">
         <label className={`activity-option ${values.lookingFor.includes('study') ? 'selected' : ''}`}><input type="checkbox" name="lookingFor" value="study" checked={values.lookingFor.includes('study')} onChange={() => toggleLookingFor('study')} data-testid="checkbox-looking-for-study" /><BookOpen size={17} /><span>Study together</span></label>
-        <label className={`activity-option ${values.lookingFor.includes('play') ? 'selected' : ''}`}><input type="checkbox" name="lookingFor" value="play" checked={values.lookingFor.includes('play')} onChange={() => toggleLookingFor('play')} data-testid="checkbox-looking-for-play" /><Sparkles size={17} /><span>Play together</span></label>
+        <label className={`activity-option ${values.lookingFor.includes('play') ? 'selected' : ''}`}><input type="checkbox" name="lookingFor" value="play" checked={values.lookingFor.includes('play')} onChange={() => toggleLookingFor('play')} data-testid="checkbox-looking-for-play" /><Sparkles size={17} /><span>Do activities together</span></label>
       </div><span className="optional">Choose at least one.</span>{lookingForError && <span className="field-error" role="alert">{lookingForError}</span>}</fieldset>
       <div className="form-row"><label className="field-label">Your study style<input name="studyStyle" maxLength={80} value={values.studyStyle} onChange={(event) => setField('studyStyle', event.target.value)} placeholder="Quiet focus, or talk it out?" /></label><label className="field-label">When are you usually free?<input name="availability" maxLength={120} value={values.availability} onChange={(event) => setField('availability', event.target.value)} placeholder="Weekday afternoons, weekends…" /></label></div>
       {save.isError && <p className="form-error" role="alert">We couldn’t save that just yet. Please try again.</p>}
@@ -733,6 +737,64 @@ function ProtectedDiscover() { return <MemberGate><DiscoverPage /></MemberGate>;
 function ProtectedMeetups() { return <MemberGate><MeetupPage /></MemberGate>; }
 function ProtectedConnections() { return <MemberGate><ConnectionsPage /></MemberGate>; }
 function ProtectedProfile() { return <MemberGate><ProfilePage /></MemberGate>; }
+function ProtectedMeetupCall() { return <MemberGate><MeetupCallPage /></MemberGate>; }
+
+function MeetupCallPage() {
+  const { id } = useParams<{ id: string }>();
+  const [, setLocation] = useLocation();
+  const callToken = useCreateMeetupCallToken();
+  const [requestedRoomId, setRequestedRoomId] = useState<string | null>(null);
+  const callData = requestedRoomId === id ? callToken.data : undefined;
+  const callError = requestedRoomId === id && callToken.isError;
+  const callIsPending = requestedRoomId === id && callToken.isPending;
+  const errorMessage = hasHttpStatus(callToken.error, 404)
+    ? 'Join this meetup before entering its call.'
+    : hasHttpStatus(callToken.error, 409)
+      ? 'This meetup does not have an online call room.'
+      : hasHttpStatus(callToken.error, 503)
+        ? 'Versari’s secure video service is not connected yet.'
+        : 'We could not start this call. Please try again.';
+
+  return <main className="online-call-page">
+    <Link className="call-back-link" href="/meetups"><ArrowRight size={15} /> Back to meetups</Link>
+    <header className="online-call-header">
+      <span className="eyebrow">VERSARI ONLINE ROOM</span>
+      <h1 className="display">{callData?.title || 'Join your meetup call'}</h1>
+      <p>Hosted securely by Jitsi. Your camera and microphone stay off until you turn them on.</p>
+    </header>
+    {callData ? <div className="call-frame">
+      <JaaSMeeting
+        appId={callData.appId}
+        roomName={callData.roomName}
+        jwt={callData.token}
+        configOverwrite={{
+          prejoinPageEnabled: true,
+          startWithAudioMuted: true,
+          startWithVideoMuted: true,
+          disableDeepLinking: true,
+        }}
+        interfaceConfigOverwrite={{
+          MOBILE_APP_PROMO: false,
+          TILE_VIEW_MAX_COLUMNS: 4,
+        }}
+        onReadyToClose={() => setLocation('/meetups')}
+        getIFrameRef={(iframeRef) => {
+          iframeRef.style.width = '100%';
+          iframeRef.style.height = 'min(72vh, 760px)';
+          iframeRef.style.border = '0';
+        }}
+      />
+    </div> : <section className="call-entry-card">
+      <div className="call-entry-icon"><Video size={22} /></div>
+      <h2 className="display">Meet face to face, from anywhere.</h2>
+      <p>Only students who joined this meetup can enter. You’ll be able to preview your camera and microphone before joining.</p>
+      {callError && <div className="inline-notice notice-error" role="alert">{errorMessage}</div>}
+      <button className="button button-coral" onClick={() => { setRequestedRoomId(id); callToken.mutate({ id }); }} disabled={callIsPending}>
+        {callIsPending ? 'Opening your room…' : <>Enter call <Video size={16} /></>}
+      </button>
+    </section>}
+  </main>;
+}
 
 function ClerkApp() {
   const [, setLocation] = useLocation();
@@ -756,6 +818,7 @@ function ClerkApp() {
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/discover" component={ProtectedDiscover} />
+        <Route path="/meetups/:id/call" component={ProtectedMeetupCall} />
         <Route path="/meetups" component={ProtectedMeetups} />
         <Route path="/connections" component={ProtectedConnections} />
         <Route path="/profile" component={ProtectedProfile} />

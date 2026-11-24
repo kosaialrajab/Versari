@@ -1,8 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createSign, randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, asc, count, eq, gt, inArray, ilike, or } from "drizzle-orm";
 import {
   CancelMeetupParams,
+  CreateMeetupCallTokenParams,
+  CreateMeetupCallTokenResponse,
   CreateMeetupBody,
   CreateMeetupResponse,
   JoinMeetupParams,
@@ -59,6 +61,7 @@ async function buildMeetups(
       topic: meetupsTable.topic,
       description: meetupsTable.description,
       location: meetupsTable.location,
+      isOnline: meetupsTable.isOnline,
       startsAt: meetupsTable.startsAt,
       capacity: meetupsTable.capacity,
     })
@@ -125,6 +128,124 @@ router.get("/meetups", async (req, res): Promise<void> => {
     query.data.q?.trim(),
   );
   res.json(ListMeetupsResponse.parse(meetups));
+});
+
+router.post("/meetups/:id/call-token", async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to continue." });
+    return;
+  }
+  const params = CreateMeetupCallTokenParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [participant] = await db
+    .select({
+      id: meetupsTable.id,
+      creatorId: meetupsTable.creatorId,
+      title: meetupsTable.title,
+      mode: meetupsTable.mode,
+      isOnline: meetupsTable.isOnline,
+      displayName: profilesTable.displayName,
+    })
+    .from(meetupsTable)
+    .innerJoin(
+      profilesTable,
+      and(
+        eq(meetupsTable.creatorId, profilesTable.userId),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
+    .innerJoin(
+      meetupMembersTable,
+      and(
+        eq(meetupMembersTable.meetupId, meetupsTable.id),
+        eq(meetupMembersTable.userId, userId),
+      ),
+    )
+    .where(eq(meetupsTable.id, params.data.id))
+    .limit(1);
+
+  if (!participant) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  if (
+    participant.creatorId !== userId &&
+    !(await areAcceptedFriends(userId, participant.creatorId))
+  ) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  if (!participant.isOnline) {
+    res.status(409).json({ error: "This meetup does not have an online call." });
+    return;
+  }
+
+  const appId = process.env.JAAS_APP_ID?.trim();
+  const apiKeyId = process.env.JAAS_API_KEY_ID?.trim();
+  const privateKey = process.env.JAAS_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  if (!appId || !apiKeyId || !privateKey) {
+    res.status(503).json({ error: "Online calling is not configured yet." });
+    return;
+  }
+
+  const roomName = `meetup-${participant.id.replaceAll("-", "")}`;
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(
+    JSON.stringify({
+      alg: "RS256",
+      kid: `${appId}/${apiKeyId}`,
+      typ: "JWT",
+    }),
+  ).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({
+      aud: "jitsi",
+      iss: "chat",
+      sub: appId,
+      room: roomName,
+      exp: issuedAt + 2 * 60 * 60,
+      nbf: issuedAt - 10,
+      context: {
+        user: {
+          id: userId,
+          name: participant.displayName,
+          ...(participant.creatorId === userId ? { moderator: "true" } : {}),
+        },
+        features: {
+          recording: false,
+          livestreaming: false,
+          transcription: false,
+        },
+      },
+    }),
+  ).toString("base64url");
+  const signingInput = `${header}.${payload}`;
+  try {
+    const signer = createSign("RSA-SHA256");
+    signer.update(signingInput);
+    signer.end();
+    const signature = signer.sign(privateKey).toString("base64url");
+    const token = `${signingInput}.${signature}`;
+    res.setHeader("Cache-Control", "no-store");
+    res.json(
+      CreateMeetupCallTokenResponse.parse({
+        appId,
+        roomName,
+        token,
+        title: participant.title,
+        mode: participant.mode,
+      }),
+    );
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to sign JaaS meeting token");
+    res.status(503).json({ error: "Online calling is temporarily unavailable." });
+  }
 });
 
 router.post("/meetups", async (req, res): Promise<void> => {

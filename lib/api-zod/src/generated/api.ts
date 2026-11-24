@@ -109,7 +109,7 @@ export const ListStudentsResponse = zod.array(ListStudentsResponseItem)
 
 
 /**
- * @summary Browse study and play meetups
+ * @summary Browse study and activity meetups
  */
 export const ListMeetupsQueryParams = zod.object({
   "mode": zod.enum(['study', 'play']).optional(),
@@ -125,6 +125,7 @@ export const ListMeetupsResponseItem = zod.object({
   "topic": zod.string(),
   "description": zod.string(),
   "location": zod.string(),
+  "isOnline": zod.boolean(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -155,6 +156,7 @@ export const CreateMeetupBody = zod.object({
   "topic": zod.string().min(1).max(createMeetupBodyTopicMax),
   "description": zod.string().max(createMeetupBodyDescriptionMax),
   "location": zod.string().min(1).max(createMeetupBodyLocationMax),
+  "isOnline": zod.boolean(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int().min(createMeetupBodyCapacityMin).max(createMeetupBodyCapacityMax)
 })
@@ -168,6 +170,7 @@ export const CreateMeetupResponse = zod.object({
   "topic": zod.string(),
   "description": zod.string(),
   "location": zod.string(),
+  "isOnline": zod.boolean(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -201,6 +204,7 @@ export const JoinMeetupResponse = zod.object({
   "topic": zod.string(),
   "description": zod.string(),
   "location": zod.string(),
+  "isOnline": zod.boolean(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -224,10 +228,27 @@ export const LeaveMeetupResponse = zod.object({
   "topic": zod.string(),
   "description": zod.string(),
   "location": zod.string(),
+  "isOnline": zod.boolean(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
   "joined": zod.boolean()
+})
+
+
+/**
+ * @summary Create a short-lived call token for a meetup member
+ */
+export const CreateMeetupCallTokenParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateMeetupCallTokenResponse = zod.object({
+  "appId": zod.string(),
+  "roomName": zod.string(),
+  "token": zod.string(),
+  "title": zod.string(),
+  "mode": zod.enum(['study', 'play'])
 })
 
 
@@ -317,7 +338,7 @@ export const UpdateConnectionResponse = zod.object({
 
 
 /**
- * @summary List study and play requests between friends
+ * @summary List study and activity requests between friends
  */
 export const ListActivityRequestsResponseItem = zod.object({
   "id": zod.string(),
@@ -343,7 +364,7 @@ export const ListActivityRequestsResponse = zod.array(ListActivityRequestsRespon
 
 
 /**
- * @summary Send a quick study or play request to a friend
+ * @summary Send a quick study or activity request to a friend
  */
 
 

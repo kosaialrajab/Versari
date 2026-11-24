@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Versari"
-description = "A student connection app for discovering study partners and finding people to play or spend time with."
+description = "A campus connection app for verified university students to find study partners, organize activities, and join private online meetups."
 version = "1.0.0"
 id = "artifacts/versari"
 router = "path"
