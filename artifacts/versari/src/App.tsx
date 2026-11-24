@@ -648,11 +648,13 @@ function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [lookingForError, setLookingForError] = useState('');
   const [draft, setDraft] = useState<ProfileInput | null>(null);
+  const [interestsText, setInterestsText] = useState<string | null>(null);
   const values = draft || (profile ? {
     displayName: profile.displayName, university: profile.university, program: profile.program, year: profile.year,
     bio: profile.bio, interests: profile.interests || [], lookingFor: profile.lookingFor?.length ? profile.lookingFor : ['study', 'play'], studyStyle: profile.studyStyle, availability: profile.availability,
   } : { ...emptyProfile, university: campus || '' });
   const setField = (field: keyof ProfileInput, value: string) => { setSaved(false); setDraft((current) => ({ ...(current || values), [field]: value })); };
+  const interestInputValue = interestsText ?? values.interests.join(', ');
   const toggleLookingFor = (mode: 'study' | 'play') => {
     setSaved(false);
     setLookingForError('');
@@ -681,7 +683,7 @@ function ProfilePage() {
       lookingFor,
       studyStyle: String(form.get('studyStyle') || '').trim(), availability: String(form.get('availability') || '').trim(),
     };
-    save.mutate({ data: next }, { onSuccess: async () => { setDraft(next); setSaved(true); await client.invalidateQueries({ queryKey: getGetMyProfileQueryKey() }); if (!profile) setLocation('/discover'); }, onError: () => setSaved(false) });
+    save.mutate({ data: next }, { onSuccess: async () => { setDraft(next); setInterestsText(next.interests.join(', ')); setSaved(true); await client.invalidateQueries({ queryKey: getGetMyProfileQueryKey() }); if (!profile) setLocation('/discover'); }, onError: () => setSaved(false) });
   };
   return <div>
     <PageHeader kicker={profile ? 'YOUR LITTLE CORNER OF CAMPUS' : 'A GOOD PLACE TO START'} title={profile ? <>Make it <em>you.</em></> : <>First, a little <em>about you.</em></>} desc={profile ? 'The details that help your people find you — and know what to say hello about.' : 'Your email is verified. Now tell fellow students a little about the person behind it.'} />
@@ -691,7 +693,7 @@ function ProfilePage() {
       <div className="form-row"><label className="field-label">What should we call you?<input name="displayName" required maxLength={80} value={values.displayName} onChange={(event) => setField('displayName', event.target.value)} placeholder="Your name" /></label><label className="field-label">Your campus<input name="university" required maxLength={120} value={campus || values.university} readOnly aria-describedby="campus-assigned-help" /><span className="optional" id="campus-assigned-help">Assigned from your verified student email.</span></label></div>
       <div className="form-row"><label className="field-label">What are you studying?<input name="program" required maxLength={100} value={values.program} onChange={(event) => setField('program', event.target.value)} placeholder="Program or area of study" /></label><label className="field-label">Year at university<select name="year" required value={values.year} onChange={(event) => setField('year', event.target.value)}><option value="">Choose your year</option><option>First year</option><option>Second year</option><option>Third year</option><option>Fourth year</option><option>Fifth year or beyond</option><option>Graduate student</option><option>Other</option></select></label></div>
       <label className="field-label">A little about you<textarea name="bio" maxLength={500} rows={4} value={values.bio} onChange={(event) => setField('bio', event.target.value)} placeholder="What makes you, you? What kind of people or plans are you hoping to find?" /></label>
-      <label className="field-label">Things you’re into <span className="optional">Separate with commas · up to 12</span><input name="interests" maxLength={600} value={values.interests.join(', ')} onChange={(event) => setDraft((current) => ({ ...(current || values), interests: event.target.value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12) }))} placeholder="Film photography, climbing, ramen…" /></label>
+      <label className="field-label">Things you’re into <span className="optional">Separate with commas · up to 12</span><input name="interests" maxLength={600} value={interestInputValue} onChange={(event) => { setSaved(false); setInterestsText(event.target.value); }} placeholder="Film photography, climbing, ramen…" /></label>
       <fieldset className="activity-fieldset"><legend className="field-label">I’d like to find people to…</legend><div className="activity-options">
         <label className={`activity-option ${values.lookingFor.includes('study') ? 'selected' : ''}`}><input type="checkbox" name="lookingFor" value="study" checked={values.lookingFor.includes('study')} onChange={() => toggleLookingFor('study')} data-testid="checkbox-looking-for-study" /><BookOpen size={17} /><span>Study together</span></label>
         <label className={`activity-option ${values.lookingFor.includes('play') ? 'selected' : ''}`}><input type="checkbox" name="lookingFor" value="play" checked={values.lookingFor.includes('play')} onChange={() => toggleLookingFor('play')} data-testid="checkbox-looking-for-play" /><Sparkles size={17} /><span>Do activities together</span></label>
