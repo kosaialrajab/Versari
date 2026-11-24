@@ -1,10 +1,8 @@
-import { createSign, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, asc, count, eq, gt, inArray, ilike, or } from "drizzle-orm";
 import {
   CancelMeetupParams,
-  CreateMeetupCallTokenParams,
-  CreateMeetupCallTokenResponse,
   CreateMeetupBody,
   CreateMeetupResponse,
   JoinMeetupParams,
@@ -13,6 +11,9 @@ import {
   LeaveMeetupResponse,
   ListMeetupsQueryParams,
   ListMeetupsResponse,
+  UpdateMeetupCallLinkBody,
+  UpdateMeetupCallLinkParams,
+  UpdateMeetupCallLinkResponse,
 } from "@workspace/api-zod";
 import {
   db,
@@ -30,6 +31,16 @@ import type { VersariSchool } from "../../lib/schoolAccess";
 
 const router: IRouter = Router();
 router.use(requireAuth);
+
+function isValidHttpsCallUrl(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
 
 async function buildMeetups(
   currentUserId: string,
@@ -62,6 +73,7 @@ async function buildMeetups(
       description: meetupsTable.description,
       location: meetupsTable.location,
       isOnline: meetupsTable.isOnline,
+      onlineCallUrl: meetupsTable.onlineCallUrl,
       startsAt: meetupsTable.startsAt,
       capacity: meetupsTable.capacity,
     })
@@ -106,6 +118,7 @@ async function buildMeetups(
     ...meetup,
     attendeeCount: counts.get(meetup.id) ?? 0,
     joined: joined.has(meetup.id),
+    onlineCallUrl: joined.has(meetup.id) ? meetup.onlineCallUrl : null,
   }));
 }
 
@@ -130,124 +143,6 @@ router.get("/meetups", async (req, res): Promise<void> => {
   res.json(ListMeetupsResponse.parse(meetups));
 });
 
-router.post("/meetups/:id/call-token", async (req, res): Promise<void> => {
-  const userId = getAuth(req).userId;
-  const school = getVersariSchool(res);
-  if (!userId) {
-    res.status(401).json({ error: "Sign in to continue." });
-    return;
-  }
-  const params = CreateMeetupCallTokenParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-
-  const [participant] = await db
-    .select({
-      id: meetupsTable.id,
-      creatorId: meetupsTable.creatorId,
-      title: meetupsTable.title,
-      mode: meetupsTable.mode,
-      isOnline: meetupsTable.isOnline,
-      displayName: profilesTable.displayName,
-    })
-    .from(meetupsTable)
-    .innerJoin(
-      profilesTable,
-      and(
-        eq(meetupsTable.creatorId, profilesTable.userId),
-        eq(profilesTable.verifiedSchool, school),
-      ),
-    )
-    .innerJoin(
-      meetupMembersTable,
-      and(
-        eq(meetupMembersTable.meetupId, meetupsTable.id),
-        eq(meetupMembersTable.userId, userId),
-      ),
-    )
-    .where(eq(meetupsTable.id, params.data.id))
-    .limit(1);
-
-  if (!participant) {
-    res.status(404).json({ error: "Meetup not found." });
-    return;
-  }
-  if (
-    participant.creatorId !== userId &&
-    !(await areAcceptedFriends(userId, participant.creatorId))
-  ) {
-    res.status(404).json({ error: "Meetup not found." });
-    return;
-  }
-  if (!participant.isOnline) {
-    res.status(409).json({ error: "This meetup does not have an online call." });
-    return;
-  }
-
-  const appId = process.env.JAAS_APP_ID?.trim();
-  const apiKeyId = process.env.JAAS_API_KEY_ID?.trim();
-  const privateKey = process.env.JAAS_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (!appId || !apiKeyId || !privateKey) {
-    res.status(503).json({ error: "Online calling is not configured yet." });
-    return;
-  }
-
-  const roomName = `meetup-${participant.id.replaceAll("-", "")}`;
-  const issuedAt = Math.floor(Date.now() / 1000);
-  const header = Buffer.from(
-    JSON.stringify({
-      alg: "RS256",
-      kid: `${appId}/${apiKeyId}`,
-      typ: "JWT",
-    }),
-  ).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({
-      aud: "jitsi",
-      iss: "chat",
-      sub: appId,
-      room: roomName,
-      exp: issuedAt + 2 * 60 * 60,
-      nbf: issuedAt - 10,
-      context: {
-        user: {
-          id: userId,
-          name: participant.displayName,
-          ...(participant.creatorId === userId ? { moderator: "true" } : {}),
-        },
-        features: {
-          recording: false,
-          livestreaming: false,
-          transcription: false,
-        },
-      },
-    }),
-  ).toString("base64url");
-  const signingInput = `${header}.${payload}`;
-  try {
-    const signer = createSign("RSA-SHA256");
-    signer.update(signingInput);
-    signer.end();
-    const signature = signer.sign(privateKey).toString("base64url");
-    const token = `${signingInput}.${signature}`;
-    res.setHeader("Cache-Control", "no-store");
-    res.json(
-      CreateMeetupCallTokenResponse.parse({
-        appId,
-        roomName,
-        token,
-        title: participant.title,
-        mode: participant.mode,
-      }),
-    );
-  } catch (error) {
-    req.log.error({ err: error }, "Unable to sign JaaS meeting token");
-    res.status(503).json({ error: "Online calling is temporarily unavailable." });
-  }
-});
-
 router.post("/meetups", async (req, res): Promise<void> => {
   const userId = getAuth(req).userId;
   const school = getVersariSchool(res);
@@ -258,6 +153,15 @@ router.post("/meetups", async (req, res): Promise<void> => {
   const parsed = CreateMeetupBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const onlineCallUrl = parsed.data.onlineCallUrl?.trim() || null;
+  if (parsed.data.isOnline && !isValidHttpsCallUrl(onlineCallUrl)) {
+    res.status(400).json({ error: "Add a valid HTTPS call link for an online meetup." });
+    return;
+  }
+  if (!parsed.data.isOnline && onlineCallUrl) {
+    res.status(400).json({ error: "Call links can only be added to online meetups." });
     return;
   }
   const startsAt = new Date(parsed.data.startsAt);
@@ -289,6 +193,7 @@ router.post("/meetups", async (req, res): Promise<void> => {
       id: meetupId,
       creatorId: userId,
       ...parsed.data,
+      onlineCallUrl,
       startsAt,
     });
     await tx.insert(meetupMembersTable).values({ meetupId, userId });
@@ -301,6 +206,70 @@ router.post("/meetups", async (req, res): Promise<void> => {
     return;
   }
   res.status(201).json(CreateMeetupResponse.parse(meetup));
+});
+
+router.patch("/meetups/:id/call-link", async (req, res): Promise<void> => {
+  const userId = getAuth(req).userId;
+  const school = getVersariSchool(res);
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to continue." });
+    return;
+  }
+  const params = UpdateMeetupCallLinkParams.safeParse(req.params);
+  const body = UpdateMeetupCallLinkBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Add a valid HTTPS call link." });
+    return;
+  }
+  const onlineCallUrl = body.data.onlineCallUrl.trim();
+  if (!isValidHttpsCallUrl(onlineCallUrl)) {
+    res.status(400).json({ error: "Add a valid HTTPS call link." });
+    return;
+  }
+
+  const [meetup] = await db
+    .select({
+      creatorId: meetupsTable.creatorId,
+      isOnline: meetupsTable.isOnline,
+    })
+    .from(meetupsTable)
+    .innerJoin(profilesTable, eq(meetupsTable.creatorId, profilesTable.userId))
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(profilesTable.verifiedSchool, school),
+      ),
+    )
+    .limit(1);
+  if (!meetup) {
+    res.status(404).json({ error: "Meetup not found." });
+    return;
+  }
+  if (meetup.creatorId !== userId) {
+    res.status(403).json({ error: "Only the organizer can change this call link." });
+    return;
+  }
+  if (!meetup.isOnline) {
+    res.status(409).json({ error: "This meetup is not online." });
+    return;
+  }
+  await db
+    .update(meetupsTable)
+    .set({ onlineCallUrl })
+    .where(
+      and(
+        eq(meetupsTable.id, params.data.id),
+        eq(meetupsTable.creatorId, userId),
+      ),
+    );
+  const [updatedMeetup] = await buildMeetups(userId, school).then((items) =>
+    items.filter((item) => item.id === params.data.id),
+  );
+  if (!updatedMeetup) {
+    res.status(500).json({ error: "The call link was saved but could not be loaded." });
+    return;
+  }
+  res.json(UpdateMeetupCallLinkResponse.parse(updatedMeetup));
 });
 
 router.delete("/meetups/:id", async (req, res): Promise<void> => {

@@ -148,6 +148,30 @@ paths:
       responses:
         "204":
           description: Meetup cancelled
+  /meetups/{id}/call-link:
+    patch:
+      operationId: updateMeetupCallLink
+      tags: [meetups]
+      summary: Add or replace an online meetup call link
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetupCallLinkInput"
+      responses:
+        "200":
+          description: Updated meetup call link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meetup"
   /meetups/{id}/join:
     post:
       operationId: joinMeetup
@@ -183,24 +207,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Meetup"
-  /meetups/{id}/call-token:
-    post:
-      operationId: createMeetupCallToken
-      tags: [meetups]
-      summary: Create a short-lived call token for a meetup member
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Authenticated meeting room details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MeetupCallToken"
   /connections:
     get:
       operationId: listConnections
@@ -376,7 +382,7 @@ components:
         availability: { type: string, maxLength: 120 }
     Meetup:
       type: object
-      required: [id, creatorId, creatorName, mode, title, topic, description, location, isOnline, startsAt, capacity, attendeeCount, joined]
+      required: [id, creatorId, creatorName, mode, title, topic, description, location, isOnline, onlineCallUrl, startsAt, capacity, attendeeCount, joined]
       properties:
         id: { type: string }
         creatorId: { type: string }
@@ -387,13 +393,14 @@ components:
         description: { type: string }
         location: { type: string }
         isOnline: { type: boolean }
+        onlineCallUrl: { type: ["string", "null"], maxLength: 2048 }
         startsAt: { type: string, format: date-time }
         capacity: { type: integer }
         attendeeCount: { type: integer }
         joined: { type: boolean }
     MeetupInput:
       type: object
-      required: [mode, title, topic, description, location, isOnline, startsAt, capacity]
+      required: [mode, title, topic, description, location, isOnline, onlineCallUrl, startsAt, capacity]
       properties:
         mode: { type: string, enum: [study, play] }
         title: { type: string, minLength: 1, maxLength: 120 }
@@ -401,17 +408,14 @@ components:
         description: { type: string, maxLength: 500 }
         location: { type: string, minLength: 1, maxLength: 120 }
         isOnline: { type: boolean }
+        onlineCallUrl: { type: ["string", "null"], maxLength: 2048 }
         startsAt: { type: string, format: date-time }
         capacity: { type: integer, minimum: 2, maximum: 50 }
-    MeetupCallToken:
+    MeetupCallLinkInput:
       type: object
-      required: [appId, roomName, token, title, mode]
+      required: [onlineCallUrl]
       properties:
-        appId: { type: string }
-        roomName: { type: string }
-        token: { type: string }
-        title: { type: string }
-        mode: { type: string, enum: [study, play] }
+        onlineCallUrl: { type: string, minLength: 1, maxLength: 2048 }
     Connection:
       type: object
       required: [id, requesterId, recipientId, status, otherStudent]

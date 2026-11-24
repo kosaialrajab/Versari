@@ -116,6 +116,10 @@ export const ListMeetupsQueryParams = zod.object({
   "q": zod.coerce.string().optional()
 })
 
+export const listMeetupsResponseOnlineCallUrlMax = 2048;
+
+
+
 export const ListMeetupsResponseItem = zod.object({
   "id": zod.string(),
   "creatorId": zod.string(),
@@ -126,6 +130,7 @@ export const ListMeetupsResponseItem = zod.object({
   "description": zod.string(),
   "location": zod.string(),
   "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(listMeetupsResponseOnlineCallUrlMax).nullable(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -145,6 +150,8 @@ export const createMeetupBodyDescriptionMax = 500;
 
 export const createMeetupBodyLocationMax = 120;
 
+export const createMeetupBodyOnlineCallUrlMax = 2048;
+
 export const createMeetupBodyCapacityMin = 2;
 export const createMeetupBodyCapacityMax = 50;
 
@@ -157,9 +164,14 @@ export const CreateMeetupBody = zod.object({
   "description": zod.string().max(createMeetupBodyDescriptionMax),
   "location": zod.string().min(1).max(createMeetupBodyLocationMax),
   "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(createMeetupBodyOnlineCallUrlMax).nullable(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int().min(createMeetupBodyCapacityMin).max(createMeetupBodyCapacityMax)
 })
+
+export const createMeetupResponseOnlineCallUrlMax = 2048;
+
+
 
 export const CreateMeetupResponse = zod.object({
   "id": zod.string(),
@@ -171,6 +183,7 @@ export const CreateMeetupResponse = zod.object({
   "description": zod.string(),
   "location": zod.string(),
   "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(createMeetupResponseOnlineCallUrlMax).nullable(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -189,11 +202,52 @@ export const CancelMeetupResponse = zod.void()
 
 
 /**
+ * @summary Add or replace an online meetup call link
+ */
+export const UpdateMeetupCallLinkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateMeetupCallLinkBodyOnlineCallUrlMax = 2048;
+
+
+
+export const UpdateMeetupCallLinkBody = zod.object({
+  "onlineCallUrl": zod.string().min(1).max(updateMeetupCallLinkBodyOnlineCallUrlMax)
+})
+
+export const updateMeetupCallLinkResponseOnlineCallUrlMax = 2048;
+
+
+
+export const UpdateMeetupCallLinkResponse = zod.object({
+  "id": zod.string(),
+  "creatorId": zod.string(),
+  "creatorName": zod.string(),
+  "mode": zod.enum(['study', 'play']),
+  "title": zod.string(),
+  "topic": zod.string(),
+  "description": zod.string(),
+  "location": zod.string(),
+  "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(updateMeetupCallLinkResponseOnlineCallUrlMax).nullable(),
+  "startsAt": zod.coerce.date(),
+  "capacity": zod.number().int(),
+  "attendeeCount": zod.number().int(),
+  "joined": zod.boolean()
+})
+
+
+/**
  * @summary Join a meetup
  */
 export const JoinMeetupParams = zod.object({
   "id": zod.coerce.string()
 })
+
+export const joinMeetupResponseOnlineCallUrlMax = 2048;
+
+
 
 export const JoinMeetupResponse = zod.object({
   "id": zod.string(),
@@ -205,6 +259,7 @@ export const JoinMeetupResponse = zod.object({
   "description": zod.string(),
   "location": zod.string(),
   "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(joinMeetupResponseOnlineCallUrlMax).nullable(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
@@ -219,6 +274,10 @@ export const LeaveMeetupParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const leaveMeetupResponseOnlineCallUrlMax = 2048;
+
+
+
 export const LeaveMeetupResponse = zod.object({
   "id": zod.string(),
   "creatorId": zod.string(),
@@ -229,26 +288,11 @@ export const LeaveMeetupResponse = zod.object({
   "description": zod.string(),
   "location": zod.string(),
   "isOnline": zod.boolean(),
+  "onlineCallUrl": zod.string().max(leaveMeetupResponseOnlineCallUrlMax).nullable(),
   "startsAt": zod.coerce.date(),
   "capacity": zod.number().int(),
   "attendeeCount": zod.number().int(),
   "joined": zod.boolean()
-})
-
-
-/**
- * @summary Create a short-lived call token for a meetup member
- */
-export const CreateMeetupCallTokenParams = zod.object({
-  "id": zod.coerce.string()
-})
-
-export const CreateMeetupCallTokenResponse = zod.object({
-  "appId": zod.string(),
-  "roomName": zod.string(),
-  "token": zod.string(),
-  "title": zod.string(),
-  "mode": zod.enum(['study', 'play'])
 })
 
 

@@ -17,6 +17,11 @@ export interface Meetup {
   description: string;
   location: string;
   isOnline: boolean;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  onlineCallUrl: string | null;
   startsAt: Date;
   capacity: number;
   attendeeCount: number;

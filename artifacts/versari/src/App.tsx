@@ -6,18 +6,17 @@ import { shadcn } from '@clerk/themes';
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, Check,
   CheckCircle2, ChevronDown, CircleHelp, Clock3, Compass, GraduationCap, Heart, MapPin,
-  Menu, MessageCircle, Plus, Search, SlidersHorizontal, Sparkles, Users, Video, X,
+  Menu, MessageCircle, Pencil, Plus, Search, SlidersHorizontal, Sparkles, Users, Video, X,
 } from 'lucide-react';
-import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
-import { JaaSMeeting } from '@jitsi/react-sdk';
+import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from 'wouter';
 import { campusFromVerifiedEmails } from '@/lib/campus';
 import {
   getGetDashboardSummaryQueryKey, getGetMyProfileQueryKey, getListActivityRequestsQueryKey,
   getListConnectionsQueryKey, getListMeetupsQueryKey, getListStudentsQueryKey,
-  useCreateActivityRequest, useCreateConnection, useCreateMeetup, useCreateMeetupCallToken, useCancelMeetup,
+  useCreateActivityRequest, useCreateConnection, useCreateMeetup, useCancelMeetup,
   useGetDashboardSummary, useGetMyProfile, useJoinMeetup, useLeaveMeetup,
   useListActivityRequests, useListConnections, useListMeetups, useListStudents,
-  useSaveMyProfile, useUpdateActivityRequest, useUpdateConnection,
+  useSaveMyProfile, useUpdateActivityRequest, useUpdateConnection, useUpdateMeetupCallLink,
 } from '@workspace/api-client-react';
 import type { ActivityRequest, Connection, ListMeetupsParams, ListStudentsParams, Meetup, MeetupInput, ProfileInput, StudentProfile } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
@@ -349,6 +348,7 @@ function MeetupPage() {
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('');
   const [creating, setCreating] = useState(false);
+  const [editingCallLink, setEditingCallLink] = useState<Meetup | null>(null);
   const params = useMemo<ListMeetupsParams>(() => ({ q: search.trim() || undefined, mode: mode ? mode as 'study' | 'play' : undefined }), [search, mode]);
   const query = useListMeetups(params, {
     query: {
@@ -358,11 +358,21 @@ function MeetupPage() {
   });
   const createMeetup = useCreateMeetup();
   const cancelMeetup = useCancelMeetup();
+  const updateCallLink = useUpdateMeetupCallLink();
   const join = useJoinMeetup();
   const leave = useLeaveMeetup();
   const client = useQueryClient();
   const refresh = () => client.invalidateQueries({ queryKey: getListMeetupsQueryKey() });
   const submitMeetup = (input: MeetupInput) => createMeetup.mutate({ data: input }, { onSuccess: async () => { setCreating(false); await refresh(); }, onError: () => {} });
+  const submitCallLink = (onlineCallUrl: string) => {
+    if (!editingCallLink) return;
+    updateCallLink.mutate({ id: editingCallLink.id, data: { onlineCallUrl } }, {
+      onSuccess: async () => {
+        setEditingCallLink(null);
+        await refresh();
+      },
+    });
+  };
   const toggleJoin = (meetup: Meetup) => {
     const mutation = meetup.joined ? leave : join;
     mutation.mutate({ id: meetup.id }, { onSuccess: refresh });
@@ -387,15 +397,17 @@ function MeetupPage() {
       </div>
       {createMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t create that meetup. Check your details and try again.</div>}
       {cancelMeetup.isError && <div className="inline-notice notice-error" role="alert">Couldn’t cancel that meetup. Please try again.</div>}
+      {updateCallLink.isError && <div className="inline-notice notice-error" role="alert">Couldn’t save that call link. Check it and try again.</div>}
       {query.isLoading ? <MeetupSkeletons /> : query.isError ? <ErrorState message="Meetups aren't loading right now." retry={() => query.refetch()} /> : query.data?.length ? (
-        <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} isOrganizer={meetup.creatorId === userId} onCancel={() => cancel(meetup)} onToggle={() => toggleJoin(meetup)} pending={(cancelMeetup.isPending && cancelMeetup.variables?.id === meetup.id) || (join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id)} />)}</div>
+        <div className="meetup-grid">{query.data.map((meetup) => <MeetupCard key={meetup.id} meetup={meetup} isOrganizer={meetup.creatorId === userId} onCancel={() => cancel(meetup)} onToggle={() => toggleJoin(meetup)} onEditCallLink={() => setEditingCallLink(meetup)} pending={(cancelMeetup.isPending && cancelMeetup.variables?.id === meetup.id) || (join.isPending && join.variables?.id === meetup.id) || (leave.isPending && leave.variables?.id === meetup.id) || (updateCallLink.isPending && updateCallLink.variables?.id === meetup.id)} />)}</div>
       ) : <EmptyState title={search || mode ? 'No plans found.' : 'No friend meetups yet.'} detail={search || mode ? 'Try another search or clear your filters to see more meetups.' : 'Connect with students on Discover first. Their upcoming meetups will appear here, and you can start one for your friends.'} icon={<CalendarDays size={24} />} action={<button className="button button-dark" onClick={() => setCreating(true)}><Plus size={15} /> Create a meetup</button>} />}
       {creating && <MeetupDialog onClose={() => setCreating(false)} onSubmit={submitMeetup} pending={createMeetup.isPending} />}
+      {editingCallLink && <CallLinkDialog initialUrl={editingCallLink.onlineCallUrl || ''} onClose={() => setEditingCallLink(null)} onSubmit={submitCallLink} pending={updateCallLink.isPending} />}
     </div>
   );
 }
 
-function MeetupCard({ meetup, isOrganizer, onCancel, onToggle, pending }: { meetup: Meetup; isOrganizer: boolean; onCancel: () => void; onToggle: () => void; pending: boolean }) {
+function MeetupCard({ meetup, isOrganizer, onCancel, onToggle, onEditCallLink, pending }: { meetup: Meetup; isOrganizer: boolean; onCancel: () => void; onToggle: () => void; onEditCallLink: () => void; pending: boolean }) {
   const isStudy = meetup.mode === 'study';
   const start = new Date(meetup.startsAt);
   const date = Number.isNaN(start.valueOf()) ? 'Time to be announced' : new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(start);
@@ -403,8 +415,8 @@ function MeetupCard({ meetup, isOrganizer, onCancel, onToggle, pending }: { meet
   return <article className={`meetup-card ${isStudy ? 'meetup-study' : 'meetup-play'}`} data-testid={`card-meetup-${meetup.id}`}>
     <div className="meetup-card-head"><span className={`meetup-type ${isStudy ? 'type-study' : 'type-play'}`}>{isStudy ? <BookOpen size={14} /> : <Sparkles size={14} />}{isStudy ? 'STUDY SESSION' : 'ACTIVITY SESSION'}</span><span className="meetup-seats">{meetup.attendeeCount}/{meetup.capacity} spots</span></div>
     <h2>{meetup.title}</h2><div className="meetup-topic">{meetup.topic}</div><p className="meetup-description">{meetup.description || 'A simple plan, made better with company.'}</p>
-    <div className="meetup-info"><span><CalendarDays size={15} />{date}</span><span>{meetup.isOnline ? <Video size={15} /> : <MapPin size={15} />}{meetup.isOnline ? 'Online call' : meetup.location}</span></div>
-    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div><div className="meetup-actions">{meetup.isOnline && meetup.joined && <Link className="button button-coral meetup-call-button" href={`/meetups/${meetup.id}/call`} data-testid={`button-call-${meetup.id}`}><Video size={14} /> Join call</Link>}{isOrganizer ? <button className="button button-cancel" onClick={onCancel} disabled={pending} data-testid={`button-cancel-${meetup.id}`}><X size={14} />{pending ? 'Cancelling…' : 'Cancel meetup'}</button> : <button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button>}</div></div>
+    <div className="meetup-info"><span><CalendarDays size={15} />{date}</span><span>{meetup.isOnline ? <Video size={15} /> : <MapPin size={15} />}{meetup.isOnline ? meetup.joined ? 'Online · call link available' : 'Online · link after joining' : meetup.location}</span></div>
+    <div className="meetup-card-foot"><div className="host-info"><div className="initial-avatar">{initials(meetup.creatorName)}</div><span>Hosted by <strong>{meetup.creatorName}</strong></span></div><div className="meetup-actions">{meetup.isOnline && meetup.joined && meetup.onlineCallUrl && <a className="button button-coral meetup-call-button" href={meetup.onlineCallUrl} target="_blank" rel="noopener noreferrer" data-testid={`button-call-${meetup.id}`}><Video size={14} /> Join call</a>}{meetup.isOnline && meetup.joined && isOrganizer && <button className="button button-outline" onClick={onEditCallLink} disabled={pending} data-testid={`button-edit-call-link-${meetup.id}`}><Pencil size={13} />{meetup.onlineCallUrl ? 'Edit link' : 'Add call link'}</button>}{meetup.isOnline && meetup.joined && !meetup.onlineCallUrl && !isOrganizer && <span className="status-pill">Host hasn’t added a link</span>}{isOrganizer ? <button className="button button-cancel" onClick={onCancel} disabled={pending} data-testid={`button-cancel-${meetup.id}`}><X size={14} />{pending ? 'Cancelling…' : 'Cancel meetup'}</button> : <button className={`button ${meetup.joined ? 'button-joined' : 'button-dark'}`} onClick={onToggle} disabled={pending || (!meetup.joined && filled)} data-testid={`button-join-${meetup.id}`}>{pending ? 'One sec…' : meetup.joined ? <><Check size={15} /> Going · leave</> : filled ? 'Full for now' : <>Join us <ArrowRight size={14} /></>}</button>}</div></div>
   </article>;
 }
 
@@ -416,16 +428,19 @@ function MeetupDialog({ onClose, onSubmit, pending }: { onClose: () => void; onS
   const [mode, setMode] = useState<'study' | 'play'>('study');
   const [isOnline, setIsOnline] = useState(false);
   const [error, setError] = useState('');
+  const [urlError, setUrlError] = useState('');
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const title = String(form.get('title') || '').trim();
     const topic = String(form.get('topic') || '').trim();
     const location = isOnline ? 'Online call' : String(form.get('location') || '').trim();
+    const onlineCallUrl = isOnline ? String(form.get('onlineCallUrl') || '').trim() : null;
     if (!title || !topic || (!isOnline && !location)) { setError('Add a title, topic, and place so people know what they’re joining.'); return; }
+    if (isOnline && !isValidCallLink(onlineCallUrl || '')) { setUrlError('Add a valid HTTPS link, such as a Google Meet or Discord invite.'); return; }
     const date = String(form.get('startsAt') || '');
     if (!date || new Date(date).getTime() <= Date.now()) { setError('Choose a time in the future.'); return; }
-    onSubmit({ mode, title, topic, location, isOnline, startsAt: new Date(date).toISOString(), description: String(form.get('description') || '').trim(), capacity: Number(form.get('capacity') || 6) });
+    onSubmit({ mode, title, topic, location, isOnline, onlineCallUrl, startsAt: new Date(date).toISOString(), description: String(form.get('description') || '').trim(), capacity: Number(form.get('capacity') || 6) });
   };
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="meetup-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
     <div className="dialog-heading"><div><span className="eyebrow">MAKE IT HAPPEN</span><h2 id="dialog-title" className="display">Start a little <em>something.</em></h2></div><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20} /></button></div>
@@ -435,10 +450,43 @@ function MeetupDialog({ onClose, onSubmit, pending }: { onClose: () => void; onS
       <label className="field-label">{mode === 'study' ? 'What are we working on?' : 'What activity are you planning?'}<input name="topic" required maxLength={80} placeholder={mode === 'study' ? 'Biology midterm review' : 'A co-op game or creative session'} /></label>
       <label className="field-label">A little more detail <span className="optional">optional</span><textarea name="description" maxLength={500} rows={3} placeholder="The vibe, what to bring, anything useful…" /></label>
       <fieldset className="online-choice"><legend className="field-label">How are you meeting?</legend><div className="mode-switch"><button type="button" className={!isOnline ? 'active' : ''} onClick={() => setIsOnline(false)}><MapPin size={15} /> In person</button><button type="button" className={isOnline ? 'active' : ''} onClick={() => setIsOnline(true)}><Video size={15} /> Online call</button></div></fieldset>
-      <div className="form-row">{isOnline ? <div className="online-meetup-note"><Video size={17} /><span><strong>Your Versari call room will be ready.</strong><small>Only students who join the meetup can enter.</small></span></div> : <label className="field-label">Where<input name="location" required maxLength={120} placeholder="Library, room 2B" /></label>}<label className="field-label">When<input name="startsAt" type="datetime-local" required /></label></div>
+      {isOnline ? <><label className="field-label">Online call link<input name="onlineCallUrl" type="url" required maxLength={2048} onChange={() => setUrlError('')} placeholder="https://meet.google.com/..." /><span className="optional">Google Meet, Discord, or another HTTPS call link. Only joined members can see it.</span></label><label className="field-label">When<input name="startsAt" type="datetime-local" required /></label></> : <div className="form-row"><label className="field-label">Where<input name="location" required maxLength={120} placeholder="Library, room 2B" /></label><label className="field-label">When<input name="startsAt" type="datetime-local" required /></label></div>}
+      {urlError && <p className="form-error" role="alert">{urlError}</p>}
       <label className="field-label capacity-field">Group size<select name="capacity" defaultValue="6"><option value="2">2 people</option><option value="4">4 people</option><option value="6">6 people</option><option value="10">10 people</option><option value="15">15 people</option><option value="25">25 people</option><option value="50">Up to 50</option></select></label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="dialog-actions"><button type="button" className="button button-outline" onClick={onClose}>Cancel</button><button type="submit" className="button button-coral" disabled={pending}>{pending ? 'Putting it together…' : <>Post meetup <ArrowRight size={15} /></>}</button></div>
+    </form>
+  </section></div>;
+}
+
+function isValidCallLink(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+function CallLinkDialog({ initialUrl, onClose, onSubmit, pending }: { initialUrl: string; onClose: () => void; onSubmit: (url: string) => void; pending: boolean }) {
+  const [error, setError] = useState('');
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const url = String(form.get('onlineCallUrl') || '').trim();
+    if (!isValidCallLink(url)) {
+      setError('Use a valid HTTPS call link.');
+      return;
+    }
+    onSubmit(url);
+  };
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="meetup-dialog" role="dialog" aria-modal="true" aria-labelledby="call-link-title">
+    <div className="dialog-heading"><div><span className="eyebrow">ONLINE MEETUP</span><h2 id="call-link-title" className="display">Add your <em>call link.</em></h2></div><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={20} /></button></div>
+    <form onSubmit={submit} className="form-stack">
+      <label className="field-label">Google Meet, Discord, or another HTTPS link<input name="onlineCallUrl" type="url" defaultValue={initialUrl} required maxLength={2048} placeholder="https://meet.google.com/..." /></label>
+      <p className="call-link-privacy">Only students who join this meetup can see the link.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="dialog-actions"><button type="button" className="button button-outline" onClick={onClose}>Cancel</button><button type="submit" className="button button-coral" disabled={pending}>{pending ? 'Saving link…' : <>Save call link <Check size={15} /></>}</button></div>
     </form>
   </section></div>;
 }
@@ -739,65 +787,6 @@ function ProtectedDiscover() { return <MemberGate><DiscoverPage /></MemberGate>;
 function ProtectedMeetups() { return <MemberGate><MeetupPage /></MemberGate>; }
 function ProtectedConnections() { return <MemberGate><ConnectionsPage /></MemberGate>; }
 function ProtectedProfile() { return <MemberGate><ProfilePage /></MemberGate>; }
-function ProtectedMeetupCall() { return <MemberGate><MeetupCallPage /></MemberGate>; }
-
-function MeetupCallPage() {
-  const { id } = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
-  const callToken = useCreateMeetupCallToken();
-  const [requestedRoomId, setRequestedRoomId] = useState<string | null>(null);
-  const callData = requestedRoomId === id ? callToken.data : undefined;
-  const callError = requestedRoomId === id && callToken.isError;
-  const callIsPending = requestedRoomId === id && callToken.isPending;
-  const errorMessage = hasHttpStatus(callToken.error, 404)
-    ? 'Join this meetup before entering its call.'
-    : hasHttpStatus(callToken.error, 409)
-      ? 'This meetup does not have an online call room.'
-      : hasHttpStatus(callToken.error, 503)
-        ? 'Versari’s secure video service is not connected yet.'
-        : 'We could not start this call. Please try again.';
-
-  return <main className="online-call-page">
-    <Link className="call-back-link" href="/meetups"><ArrowRight size={15} /> Back to meetups</Link>
-    <header className="online-call-header">
-      <span className="eyebrow">VERSARI ONLINE ROOM</span>
-      <h1 className="display">{callData?.title || 'Join your meetup call'}</h1>
-      <p>Hosted securely by Jitsi. Your camera and microphone stay off until you turn them on.</p>
-    </header>
-    {callData ? <div className="call-frame">
-      <JaaSMeeting
-        appId={callData.appId}
-        roomName={callData.roomName}
-        jwt={callData.token}
-        configOverwrite={{
-          prejoinPageEnabled: true,
-          startWithAudioMuted: true,
-          startWithVideoMuted: true,
-          disableDeepLinking: true,
-        }}
-        interfaceConfigOverwrite={{
-          MOBILE_APP_PROMO: false,
-          TILE_VIEW_MAX_COLUMNS: 4,
-        }}
-        onReadyToClose={() => setLocation('/meetups')}
-        getIFrameRef={(iframeRef) => {
-          iframeRef.style.width = '100%';
-          iframeRef.style.height = 'min(72vh, 760px)';
-          iframeRef.style.border = '0';
-        }}
-      />
-    </div> : <section className="call-entry-card">
-      <div className="call-entry-icon"><Video size={22} /></div>
-      <h2 className="display">Meet face to face, from anywhere.</h2>
-      <p>Only students who joined this meetup can enter. You’ll be able to preview your camera and microphone before joining.</p>
-      {callError && <div className="inline-notice notice-error" role="alert">{errorMessage}</div>}
-      <button className="button button-coral" onClick={() => { setRequestedRoomId(id); callToken.mutate({ id }); }} disabled={callIsPending}>
-        {callIsPending ? 'Opening your room…' : <>Enter call <Video size={16} /></>}
-      </button>
-    </section>}
-  </main>;
-}
-
 function ClerkApp() {
   const [, setLocation] = useLocation();
   return <ClerkProvider
@@ -820,7 +809,6 @@ function ClerkApp() {
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route path="/discover" component={ProtectedDiscover} />
-        <Route path="/meetups/:id/call" component={ProtectedMeetupCall} />
         <Route path="/meetups" component={ProtectedMeetups} />
         <Route path="/connections" component={ProtectedConnections} />
         <Route path="/profile" component={ProtectedProfile} />

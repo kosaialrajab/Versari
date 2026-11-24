@@ -27,6 +27,11 @@ export interface MeetupInput {
      */
   location: string;
   isOnline: boolean;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  onlineCallUrl: string | null;
   startsAt: Date;
   /**
      * @minimum 2

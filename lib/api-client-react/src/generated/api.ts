@@ -36,7 +36,7 @@ import type {
   ListMeetupsParams,
   ListStudentsParams,
   Meetup,
-  MeetupCallToken,
+  MeetupCallLinkInput,
   MeetupInput,
   ProfileInput,
   ProfileResult,
@@ -739,6 +739,95 @@ export const useCancelMeetup = <TError = ErrorType<unknown>,
       return useMutation(getCancelMeetupMutationOptions(options), queryClient);
     }
 
+export const getUpdateMeetupCallLinkUrl = (id: string,) => {
+
+
+
+
+  return `/api/meetups/${id}/call-link`
+}
+
+/**
+ * @summary Add or replace an online meetup call link
+ */
+export const updateMeetupCallLink = async (id: string,
+    meetupCallLinkInput: MeetupCallLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<Meetup> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Meetup>(getUpdateMeetupCallLinkUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(meetupCallLinkInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateMeetupCallLinkMutationKey = () => ['updateMeetupCallLink'] as const;
+
+export const getUpdateMeetupCallLinkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeetupCallLink>>, TError,UpdateMeetupCallLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMeetupCallLink>>, TError,UpdateMeetupCallLinkMutationVariables, TContext> => {
+
+const mutationKey = getUpdateMeetupCallLinkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMeetupCallLink>>, UpdateMeetupCallLinkMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateMeetupCallLink(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMeetupCallLinkMutationResult = NonNullable<Awaited<ReturnType<typeof updateMeetupCallLink>>>
+    export type UpdateMeetupCallLinkMutationBody = BodyType<MeetupCallLinkInput>
+    export type UpdateMeetupCallLinkMutationError = ErrorType<unknown>
+    export type UpdateMeetupCallLinkMutationVariables = {id: string;data: BodyType<MeetupCallLinkInput>}
+
+    /**
+ * @summary Add or replace an online meetup call link
+ */
+export const useUpdateMeetupCallLink = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeetupCallLink>>, TError,UpdateMeetupCallLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateMeetupCallLink>>,
+        TError,
+        UpdateMeetupCallLinkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateMeetupCallLinkMutationOptions(options), queryClient);
+    }
+
 export const getJoinMeetupUrl = (id: string,) => {
 
 
@@ -885,80 +974,6 @@ export const useLeaveMeetup = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getLeaveMeetupMutationOptions(options), queryClient);
-    }
-
-export const getCreateMeetupCallTokenUrl = (id: string,) => {
-
-
-
-
-  return `/api/meetups/${id}/call-token`
-}
-
-/**
- * @summary Create a short-lived call token for a meetup member
- */
-export const createMeetupCallToken = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<MeetupCallToken> => {
-
-  return customFetch<MeetupCallToken>(getCreateMeetupCallTokenUrl(id),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-
-export const getCreateMeetupCallTokenMutationKey = () => ['createMeetupCallToken'] as const;
-
-export const getCreateMeetupCallTokenMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext> => {
-
-const mutationKey = getCreateMeetupCallTokenMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeetupCallToken>>, CreateMeetupCallTokenMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  createMeetupCallToken(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateMeetupCallTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createMeetupCallToken>>>
-
-    export type CreateMeetupCallTokenMutationError = ErrorType<unknown>
-    export type CreateMeetupCallTokenMutationVariables = {id: string}
-
-    /**
- * @summary Create a short-lived call token for a meetup member
- */
-export const useCreateMeetupCallToken = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeetupCallToken>>, TError,CreateMeetupCallTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof createMeetupCallToken>>,
-        TError,
-        CreateMeetupCallTokenMutationVariables,
-        TContext
-      > => {
-      return useMutation(getCreateMeetupCallTokenMutationOptions(options), queryClient);
     }
 
 export const getListConnectionsUrl = () => {

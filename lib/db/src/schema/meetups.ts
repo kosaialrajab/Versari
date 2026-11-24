@@ -21,6 +21,7 @@ export const meetupsTable = pgTable("versari_meetups", {
   description: text("description").notNull().default(""),
   location: text("location").notNull(),
   isOnline: boolean("is_online").notNull().default(false),
+  onlineCallUrl: text("online_call_url"),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   capacity: integer("capacity").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
