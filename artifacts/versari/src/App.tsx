@@ -82,7 +82,7 @@ const appearance = {
 };
 
 function Wordmark({ dark = false }: { dark?: boolean }) {
-  return <span className={`wordmark ${dark ? 'wordmark-light' : ''}`}><span className="wordmark-mark">v</span>versari</span>;
+  return <span className="wordmark-mark bg-[#e33210]"><span className="wordmark-mark">v</span>versari</span>;
 }
 
 function SignInPage() {
@@ -134,9 +134,9 @@ function Landing() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <span className="eyebrow"><span className="eyebrow-dot" /> CAMPUS LIFE, BETTER TOGETHER</span>
+            <span className="eyebrow"><span className="eyebrow-dot" /> CAMPUS LIFE IS BETTER TOGETHER</span>
             <h1 className="display">Your next<br />good thing is<br /><em>one hello away.</em></h1>
-            <p className="hero-lede">A reliable study partner. Someone up for a walk. People who just get your campus. Find your kind of company with Versari.</p>
+            <p className="hero-lede">Need a reliable study partner? Someone who's up for a walk? Find your kind of company with Versari.</p>
             <div className="hero-ctas">
               <Link href="/sign-up" className="button button-coral">Meet your people <ArrowRight size={17} /></Link>
               <Link href="/sign-in" className="quiet-link">Already a member? Sign in</Link>
@@ -149,7 +149,7 @@ function Landing() {
           <div className="hero-art" aria-label="Illustration of students sharing a study table">
             <div className="art-sun" />
             <div className="art-note note-one">you bring<br />the notes</div>
-            <div className="art-note note-two">I'll bring<br />the snacks</div>
+            <div className="art-note note-two">I'll bring<br />the vibes</div>
             <div className="art-table">
               <div className="table-paper"><span className="paper-line" /><span className="paper-line short" /><span className="paper-mark">good<br />ideas</span></div>
               <div className="table-book"><BookOpen size={36} strokeWidth={1.35} /></div>
@@ -162,7 +162,7 @@ function Landing() {
           <div className="hero-side-label mono">GOOD COMPANY / VOL. 01</div>
         </section>
         <section className="ticker" aria-label="Versari community">
-          <div>STUDY TOGETHER <span>·</span> TRY ACTIVITIES <span>·</span> FIND YOUR PEOPLE <span>·</span> MAKE CAMPUS YOURS <span>·</span></div>
+          <div>STUDY TOGETHER <span>·</span> TRY NEW ACTIVITIES <span>·</span> FIND YOUR PEOPLE <span>·</span> MAKE CAMPUS YOURS <span>·</span></div>
         </section>
         <section className="how-section" id="how-it-works">
           <div className="section-intro">
@@ -172,7 +172,7 @@ function Landing() {
           </div>
           <div className="steps">
             <article className="step-card"><span className="step-index mono">01 / SAY HELLO</span><div className="step-icon"><Users size={23} /></div><h3>Meet students like you</h3><p>Find people who share your course, your interests, or your very specific love of color-coded notes.</p><ArrowUpRight className="step-arrow" size={20} /></article>
-            <article className="step-card step-featured"><span className="step-index mono">02 / MAKE A PLAN</span><div className="step-icon"><CalendarDays size={23} /></div><h3>Turn “we should” into “when”</h3><p>Join a low-key meetup or start one yourself. Library table, casual game, coffee and a walk — your call.</p><ArrowUpRight className="step-arrow" size={20} /></article>
+            <article className="step-card step-featured"><span className="step-index mono">02 / MAKE A PLAN</span><div className="step-icon"><CalendarDays size={23} /></div><h3>Turn “we should” into “when”</h3><p>Join a meetup or start one yourself. Whether it's a Library study session, a casual game, or coffee and a walk — it's your call.</p><ArrowUpRight className="step-arrow" size={20} /></article>
             <article className="step-card"><span className="step-index mono">03 / FIND YOUR FLOW</span><div className="step-icon"><Heart size={23} /></div><h3>Build your kind of community</h3><p>Good study sessions and even better friendships start with a little common ground.</p><ArrowUpRight className="step-arrow" size={20} /></article>
           </div>
         </section>
