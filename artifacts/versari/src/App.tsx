@@ -172,7 +172,7 @@ function Landing() {
             <p>It can feel like everyone already has their people. They don't. Versari makes the first hello feel a little easier.</p>
           </div>
           <div className="steps">
-            <article className="step-card"><span className="step-index mono">01 / SAY HELLO</span><div className="step-icon"><Users size={23} /></div><h3>Meet students like you</h3><p>Find people who share your course, your interests, and connect through Versari</p><ArrowUpRight className="step-arrow" size={20} /></article>
+            <article className="step-card"><span className="step-index mono">01 / SAY HELLO</span><div className="step-icon"><Users size={23} /></div><h3>Meet students like you</h3><p>Find people who share your program, your interests, and connect through Versari</p><ArrowUpRight className="step-arrow" size={20} /></article>
             <article className="step-card step-featured"><span className="step-index mono">02 / MAKE A PLAN</span><div className="step-icon"><CalendarDays size={23} /></div><h3>Turn “we should” into “when”</h3><p>Join a meetup or start one yourself. Whether it's a Library study session, a casual game, or coffee and a walk — it's your call.</p><ArrowUpRight className="step-arrow" size={20} /></article>
             <article className="step-card"><span className="step-index mono">03 / FIND YOUR FLOW</span><div className="step-icon"><Heart size={23} /></div><h3>Build your kind of community</h3><p>Good study sessions and even better friendships start with a little common ground.</p><ArrowUpRight className="step-arrow" size={20} /></article>
           </div>
@@ -308,7 +308,7 @@ function DiscoverPage() {
       <PageHeader kicker="YOUR CAMPUS, A LITTLE CLOSER" title={<>Find your <em>people.</em></>} desc="People to study with, try new activities with, or just make a Tuesday feel less Tuesday." action={<div className="campus-count"><Users size={17} /><strong>{summaryQuery.data?.studentCount ?? '—'}</strong><span>students here</span></div>} />
       <section className="discover-panel">
         <div className="discover-toolbar">
-          <label className="search-box"><Search size={19} /><span className="sr-only">Search student profiles</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, course, or interest" data-testid="input-student-search" /></label>
+          <label className="search-box"><Search size={19} /><span className="sr-only">Search student profiles</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name, program, or interest" data-testid="input-student-search" /></label>
           <div className="filter-label"><SlidersHorizontal size={16} /><span>Looking for</span></div>
           <div className="filter-pills" role="group" aria-label="Filter students by activity">
             <button className={`filter-pill ${!mode ? 'selected' : ''}`} onClick={() => setMode('')} data-testid="filter-all">Everyone</button>
