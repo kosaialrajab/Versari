@@ -82,7 +82,8 @@ const appearance = {
 };
 
 function Wordmark({ dark = false }: { dark?: boolean }) {
-  return <span className="wordmark-mark bg-[#e33210]"><span className="wordmark-mark">v</span>versari</span>;
+  return <span className={`wordmark ${dark ? 'wordmark-light' : ''}`}><span className="wordmark-mark">v</span>versari</span>;
+  
 }
 
 function SignInPage() {
@@ -124,7 +125,7 @@ function Landing() {
         <Link href="/" className="brand-link"><Wordmark /></Link>
         <nav className="landing-links" aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
-          <a href="#good-company">Good company</a>
+          <a href="#good-company">Why Versari?</a>
         </nav>
         <div className="nav-actions">
           <Link href="/sign-in" className="nav-sign-in">Sign in</Link>
@@ -171,7 +172,7 @@ function Landing() {
             <p>It can feel like everyone already has their people. They don't. Versari makes the first hello feel a little easier.</p>
           </div>
           <div className="steps">
-            <article className="step-card"><span className="step-index mono">01 / SAY HELLO</span><div className="step-icon"><Users size={23} /></div><h3>Meet students like you</h3><p>Find people who share your course, your interests, or your very specific love of color-coded notes.</p><ArrowUpRight className="step-arrow" size={20} /></article>
+            <article className="step-card"><span className="step-index mono">01 / SAY HELLO</span><div className="step-icon"><Users size={23} /></div><h3>Meet students like you</h3><p>Find people who share your course, your interests, and connect through Versari</p><ArrowUpRight className="step-arrow" size={20} /></article>
             <article className="step-card step-featured"><span className="step-index mono">02 / MAKE A PLAN</span><div className="step-icon"><CalendarDays size={23} /></div><h3>Turn “we should” into “when”</h3><p>Join a meetup or start one yourself. Whether it's a Library study session, a casual game, or coffee and a walk — it's your call.</p><ArrowUpRight className="step-arrow" size={20} /></article>
             <article className="step-card"><span className="step-index mono">03 / FIND YOUR FLOW</span><div className="step-icon"><Heart size={23} /></div><h3>Build your kind of community</h3><p>Good study sessions and even better friendships start with a little common ground.</p><ArrowUpRight className="step-arrow" size={20} /></article>
           </div>
@@ -179,8 +180,8 @@ function Landing() {
         <section className="quote-section" id="good-company">
           <div className="quote-mark">“</div>
           <blockquote className="display">It’s not a networking thing.<br />It’s a <em>let’s-go-get-lunch</em> thing.</blockquote>
-          <div className="quote-bottom"><span className="quote-rule" /><span>FOR THE IN-BETWEEN MOMENTS</span><span className="quote-rule" /></div>
-          <div className="quote-stamp"><Sparkles size={19} /><span>MADE FOR<br />CAMPUS LIFE</span></div>
+          <div className="quote-bottom"><span className="quote-rule" /><span>BUILD CONNECTIONS WITHIN THE COMMUNITY, WE'RE SURE OTHERS WOULD TOO</span><span className="quote-rule" /></div>
+          
         </section>
         <section className="last-call">
           <div className="last-call-mark"><GraduationCap size={25} /></div>
@@ -191,7 +192,7 @@ function Landing() {
           <div className="last-call-scribble">see you around <ArrowDownRight size={22} /></div>
         </section>
       </main>
-      <footer className="landing-footer"><Link href="/" className="brand-link"><Wordmark /></Link><span>Good company, close to home.</span><Link href="/sign-in" className="footer-sign-in">Member sign in <ArrowRight size={14} /></Link></footer>
+      <footer className="landing-footer"><Link href="/" className="brand-link"><Wordmark /></Link><span>Versari. Meet your community</span><Link href="/sign-in" className="footer-sign-in">Member sign in <ArrowRight size={14} /></Link></footer>
     </div>
   );
 }
